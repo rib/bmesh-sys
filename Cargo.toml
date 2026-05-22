@@ -1,0 +1,15 @@
+[package]
+name = "bmesh-sys"
+version = "5.1.0"
+readme = "README.md"
+documentation = "https://docs.rs/bmesh-sys"
+license = "GPL-2.0-or-later"
+edition = "2024"
+
+[build-dependencies]
+cc = { version = "1", features = ["parallel"] }
+
+[dependencies]
+libc = "0.2"
+
+[workspace]
