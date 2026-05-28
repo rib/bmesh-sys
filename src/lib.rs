@@ -284,6 +284,21 @@ unsafe extern "C" {
     ///
     /// Note: Originals are replaced by the duplicates (aka `use_keep_orig=false`)
     ///
+    /// `use_normal_flip` is forwarded to the operator; when `true` it reverses
+    /// the winding of the side (wall) faces built between the original boundary
+    /// and the lifted duplicate.
+    ///
+    /// Returns false if the operator rejected the input.
+    pub fn bms_extrude_face_region_ex(
+        bm: *mut BMesh,
+        faces: *mut *mut BMFace,
+        faces_len: c_int,
+        use_normal_flip: bool,
+    ) -> bool;
+
+    /// Convenience wrapper for [`bms_extrude_face_region_ex`] with
+    /// `use_normal_flip = false`.
+    ///
     /// Returns false if the operator rejected the input.
     pub fn bms_extrude_face_region(
         bm: *mut BMesh,

@@ -916,11 +916,17 @@ extern "C"
      * isolated / boundary inputs, this shim is too opinionated; call
      * `BMO_op_initf` directly or add a wider-surface helper.
      *
+     * `use_normal_flip` is forwarded verbatim to the operator. When true it
+     * reverses the winding of the side (wall) faces built between the original
+     * boundary and the lifted duplicate. It does not affect the post-op
+     * normalisation below.
+     *
      * Caller is responsible for displacing the new verts after the call.
      *
      * Returns true on success, false if BMO_op_initf rejected the input.
      */
-    bool bms_extrude_face_region(BMesh *bm, BMFace **faces, int faces_len)
+    bool bms_extrude_face_region_ex(BMesh *bm, BMFace **faces, int faces_len,
+                                    bool use_normal_flip)
     {
         using namespace blender;
         BMIter it;
@@ -938,9 +944,10 @@ extern "C"
         if (!BMO_op_initf(bm,
                           &op,
                           BMO_FLAG_DEFAULTS,
-                          "extrude_face_region geom=%hf use_keep_orig=%b",
+                          "extrude_face_region geom=%hf use_keep_orig=%b use_normal_flip=%b",
                           BM_ELEM_TAG,
-                          false))
+                          false,
+                          use_normal_flip))
         {
             return false;
         }
@@ -960,6 +967,11 @@ extern "C"
             BM_face_kill(bm, faces[i]);
         }
         return true;
+    }
+
+    bool bms_extrude_face_region(BMesh *bm, BMFace **faces, int faces_len)
+    {
+        return bms_extrude_face_region_ex(bm, faces, faces_len, false);
     }
 
     /* ---- Inset (BMesh operators: inset_region / inset_individual) ---- */

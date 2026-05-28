@@ -134,9 +134,17 @@ extern "C"
     /* on error. */
     int bms_layer_add_named(BMesh *bm, int domain, int type, const char *name);
 
-    /* Extrude a region of faces. Marks each input face with BM_ELEM_TAG, then */
-    /* invokes BMesh's `extrude_face_region` operator with use_keep_orig=false. */
-    /* Returns true on success, false if the operator rejected the input. */
+    /* Extrude a region of faces. Marks each input face with BM_ELEM_TAG, then  */
+    /* invokes BMesh's `extrude_face_region` operator with use_keep_orig=false.  */
+    /* `use_normal_flip` is forwarded to the operator; when true it reverses the */
+    /* winding of the side (wall) faces built between the original boundary and  */
+    /* the lifted duplicate. Returns true on success, false if the operator     */
+    /* rejected the input. */
+    bool bms_extrude_face_region_ex(BMesh *bm, BMFace **faces, int faces_len,
+                                    bool use_normal_flip);
+
+    /* Convenience wrapper for bms_extrude_face_region_ex with                   */
+    /* use_normal_flip=false. */
     bool bms_extrude_face_region(BMesh *bm, BMFace **faces, int faces_len);
 
     /* Inset a region of faces. Marks each input face with BM_ELEM_TAG, then
