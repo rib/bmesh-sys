@@ -317,14 +317,28 @@ extern "C"
         BMVert *verts[32]; /* matches BM_DEFAULT_NGON_STACK_SIZE patterns */
         if (n > (int)(sizeof(verts) / sizeof(verts[0])))
             return nullptr;
+        /* Snapshot the per-corner loop customdata blocks alongside the
+         * vertices. BM_face_kill frees the source face's loop (and face)
+         * customdata, so the fan triangles built afterwards have to inherit
+         * from copies taken now. CustomData_bmesh_copy_block allocates a
+         * fresh pool block (dst starts null) and clones every layer into it. */
+        void *loop_cd[32];
+        for (int i = 0; i < (int)(sizeof(loop_cd) / sizeof(loop_cd[0])); i++)
+            loop_cd[i] = nullptr;
         BMLoop *l_first = BM_FACE_FIRST_LOOP(face);
         BMLoop *l_iter = l_first;
         int idx = 0;
         do
         {
-            verts[idx++] = l_iter->v;
+            verts[idx] = l_iter->v;
+            CustomData_bmesh_copy_block(bm->ldata, l_iter->head.data, &loop_cd[idx]);
+            idx++;
             l_iter = l_iter->next;
         } while (l_iter != l_first);
+
+        /* Snapshot the source face's face-level customdata block too. */
+        void *face_cd = nullptr;
+        CustomData_bmesh_copy_block(bm->pdata, face->head.data, &face_cd);
 
         /* Median centre. */
         float center[3] = {0.0f, 0.0f, 0.0f};
@@ -338,7 +352,8 @@ extern "C"
         center[1] /= (float)n;
         center[2] /= (float)n;
 
-        /* Kill original face. */
+        /* Kill original face. This frees the source loop/face customdata,
+         * which is why the snapshots above were taken first. */
         BM_face_kill(bm, face);
 
         /* Build the centre vertex. */
@@ -362,13 +377,45 @@ extern "C"
         /* Build N triangle faces. BM_face_create_verts auto-creates the
          * perimeter edges as needed (the v_center to v edges are created
          * lazily here too — face #0 creates the first two; each subsequent
-         * face reuses one v_center edge and creates one new one). */
+         * face reuses one v_center edge and creates one new one).
+         *
+         * Each fan triangle inherits the source face's customdata: the new
+         * face takes the source face-CD, its two perimeter corner loops take
+         * the loop-CD of the matching source corners, and its apex (centre)
+         * loop takes the uniform-average interpolation of every source corner
+         * loop — consistent with the centre vertex interp above. The faces are
+         * created with a null example, so their CD blocks start at the layer
+         * defaults and are overwritten in place here. */
         for (int i = 0; i < n; i++)
         {
             int j = (i + 1) % n;
             BMVert *tri[3] = {verts[i], verts[j], v_center};
-            (void)BM_face_create_verts(bm, tri, 3, nullptr, BM_CREATE_NO_DOUBLE, true);
+            BMFace *f_new = BM_face_create_verts(bm, tri, 3, nullptr, BM_CREATE_NO_DOUBLE, true);
+            if (!f_new)
+                continue;
+
+            CustomData_bmesh_copy_block(bm->pdata, face_cd, &f_new->head.data);
+
+            BMLoop *l_i = BM_face_vert_share_loop(f_new, verts[i]);
+            BMLoop *l_j = BM_face_vert_share_loop(f_new, verts[j]);
+            BMLoop *l_c = BM_face_vert_share_loop(f_new, v_center);
+            if (l_i)
+                CustomData_bmesh_copy_block(bm->ldata, loop_cd[i], &l_i->head.data);
+            if (l_j)
+                CustomData_bmesh_copy_block(bm->ldata, loop_cd[j], &l_j->head.data);
+            if (l_c)
+            {
+                const void *loop_blocks[32];
+                for (int k = 0; k < n; k++)
+                    loop_blocks[k] = loop_cd[k];
+                CustomData_bmesh_interp(&bm->ldata, loop_blocks, weights, n, l_c->head.data);
+            }
         }
+
+        /* Release the snapshot blocks taken before the kill. */
+        for (int i = 0; i < n; i++)
+            CustomData_bmesh_free_block(&bm->ldata, &loop_cd[i]);
+        CustomData_bmesh_free_block(&bm->pdata, &face_cd);
 
         return v_center;
     }
