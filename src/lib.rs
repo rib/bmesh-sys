@@ -33,6 +33,12 @@ pub struct BMLoop {
 pub struct BMFace {
     _private: [u8; 0],
 }
+/// Common header shared by every BM element. Any element pointer can be
+/// cast to `*mut BMHeader` for use in type-erased, mixed-element buffers.
+#[repr(C)]
+pub struct BMHeader {
+    _private: [u8; 0],
+}
 
 // ---- Mesh lifecycle ----
 
@@ -502,6 +508,35 @@ unsafe extern "C" {
         edges: *mut *mut BMEdge,
         edges_len: c_int,
         dist: f32,
+    ) -> bool;
+
+    /// Invoke BMesh's general-purpose `delete` BMOP on a mixed element
+    /// buffer.
+    ///
+    /// `geom` points to a buffer of `geom_len` type-erased element
+    /// pointers ([`BMHeader`]); any mix of vert / edge / face pointers may
+    /// be cast to `*mut BMHeader` since the header is the first field of
+    /// every element. The buffer may be null only when `geom_len` is zero.
+    /// Element pointers must remain valid for the duration of the call.
+    ///
+    /// `context` is the operator's `context` enum int selecting which
+    /// incident geometry is removed:
+    /// - `1` VERTS — verts plus all geometry using them.
+    /// - `2` EDGES — edges plus all faces using them.
+    /// - `3` FACES_ONLY — only the faces themselves.
+    /// - `4` EDGES_FACES — edges and their faces.
+    /// - `5` FACES — faces plus verts/edges left unused afterwards.
+    /// - `6` FACES_KEEP_BOUNDARY — like FACES but keep boundary edges of
+    ///   the removed region.
+    /// - `7` TAGGED_ONLY — only the elements in the buffer, leaving
+    ///   incident geometry.
+    ///
+    /// Returns false if the operator rejected the input.
+    pub fn bms_delete_geom(
+        bm: *mut BMesh,
+        geom: *mut *mut BMHeader,
+        geom_len: c_int,
+        context: c_int,
     ) -> bool;
 }
 

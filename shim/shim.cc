@@ -1284,4 +1284,24 @@ extern "C"
         return true;
     }
 
+    bool bms_delete_geom(BMesh *bm,
+                         BMHeader **geom, int geom_len,
+                         int context)
+    {
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "delete geom=%eb context=%i",
+                          geom,
+                          geom_len,
+                          context))
+        {
+            return false;
+        }
+        BMO_op_exec(bm, &op);
+        BMO_op_finish(bm, &op);
+        return true;
+    }
+
 } /* extern "C" */

@@ -22,6 +22,9 @@ extern "C"
     typedef struct BMEdge BMEdge;
     typedef struct BMLoop BMLoop;
     typedef struct BMFace BMFace;
+    /* Common header shared by every BM element; used as a type-erased
+     * element-pointer in mixed vert/edge/face buffers. */
+    typedef struct BMHeader BMHeader;
 
     /* Mesh lifecycle. */
     BMesh *bms_mesh_create(void);
@@ -252,6 +255,27 @@ extern "C"
                                BMFace **faces, int faces_len,
                                bool use_verts,
                                BMFace **out_buf, int out_cap);
+
+    /* Invoke BMesh's general-purpose `delete` operator on a mixed element
+     * buffer. `geom` is a type-erased buffer of `geom_len` BMHeader*
+     * pointers (any mix of verts / edges / faces, since BMHeader is the
+     * first field of every element). `context` selects which incident
+     * geometry the operator removes; it is the operator's `context` enum
+     * int, with these values:
+     *
+     *   1 = VERTS                — delete verts and all geometry using them.
+     *   2 = EDGES                — delete edges and all faces using them.
+     *   3 = FACES_ONLY           — delete only the faces themselves.
+     *   4 = EDGES_FACES          — delete edges and their faces.
+     *   5 = FACES                — delete faces and any verts/edges left
+     *                              unused afterwards.
+     *   6 = FACES_KEEP_BOUNDARY  — like FACES, but keep edges on the
+     *                              boundary of the removed region.
+     *   7 = TAGGED_ONLY          — delete only the tagged elements in the
+     *                              buffer, leaving incident geometry.
+     *
+     * Returns true on success, false if BMO_op_initf rejected the input. */
+    bool bms_delete_geom(BMesh *bm, BMHeader **geom, int geom_len, int context);
 
     /* Invoke BMesh's `dissolve_limit` operator (a.k.a. "limited dissolve") on
      * the supplied edge + vert sets. Greedy heap-driven planar / co-linear
