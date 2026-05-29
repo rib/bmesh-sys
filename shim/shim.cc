@@ -1638,6 +1638,67 @@ extern "C"
         return true;
     }
 
+    /* ---- Connect verts (BMesh operator: connect_verts) ---- */
+
+    bool bms_connect_verts(BMesh *bm,
+                           BMVert **verts, int verts_len,
+                           BMFace **faces_exclude, int faces_exclude_len,
+                           bool check_degenerate)
+    {
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "connect_verts verts=%eb faces_exclude=%eb "
+                          "check_degenerate=%b",
+                          reinterpret_cast<BMHeader **>(verts),
+                          verts_len,
+                          reinterpret_cast<BMHeader **>(faces_exclude),
+                          faces_exclude_len,
+                          check_degenerate))
+        {
+            return false;
+        }
+        BMO_op_exec(bm, &op);
+        BMO_op_finish(bm, &op);
+        return true;
+    }
+
+    int bms_connect_verts_out(BMesh *bm,
+                              BMVert **verts, int verts_len,
+                              BMFace **faces_exclude, int faces_exclude_len,
+                              bool check_degenerate,
+                              BMEdge **out_buf, int out_cap)
+    {
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "connect_verts verts=%eb faces_exclude=%eb "
+                          "check_degenerate=%b",
+                          reinterpret_cast<BMHeader **>(verts),
+                          verts_len,
+                          reinterpret_cast<BMHeader **>(faces_exclude),
+                          faces_exclude_len,
+                          check_degenerate))
+        {
+            return -1;
+        }
+        BMO_op_exec(bm, &op);
+
+        BMOpSlot *slot = BMO_slot_get(op.slots_out, "edges.out");
+        const int n = slot->len;
+        const int n_copy = (n < out_cap) ? n : out_cap;
+        BMEdge **slot_items = reinterpret_cast<BMEdge **>(slot->data.buf);
+        for (int i = 0; i < n_copy; ++i)
+        {
+            out_buf[i] = slot_items[i];
+        }
+
+        BMO_op_finish(bm, &op);
+        return n;
+    }
+
     bool bms_delete_geom(BMesh *bm,
                          BMHeader **geom, int geom_len,
                          int context)

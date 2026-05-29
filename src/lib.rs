@@ -709,6 +709,54 @@ unsafe extern "C" {
         dist: f32,
     ) -> bool;
 
+    /// Invoke BMesh's `connect_verts` BMOP on the supplied vertex set. For
+    /// each face carrying two or more of the input verts as corners, inserts
+    /// edges between selected corner pairs and splits the face. All three
+    /// input slots are forwarded explicitly:
+    ///
+    /// - `verts` — the candidate corner verts to connect.
+    /// - `faces_exclude` — faces that must not be split; may be null with a
+    ///   zero length.
+    /// - `check_degenerate` — when true, reject splits that would produce
+    ///   overlapping or self-intersecting geometry.
+    ///
+    /// Element pointers must remain valid for the duration of the call.
+    /// Returns false if the operator rejected the input.
+    pub fn bms_connect_verts(
+        bm: *mut BMesh,
+        verts: *mut *mut BMVert,
+        verts_len: c_int,
+        faces_exclude: *mut *mut BMFace,
+        faces_exclude_len: c_int,
+        check_degenerate: bool,
+    ) -> bool;
+
+    /// Capturing variant of [`bms_connect_verts`].
+    ///
+    /// Runs the same `connect_verts` BMOP and additionally copies the
+    /// operator's `edges.out` slot — the edges created by the face splits —
+    /// into the caller-supplied buffer `out_buf` of capacity `out_cap` slots.
+    ///
+    /// Return value:
+    /// - `-1` on operator init failure (mirrors the `false` return of the
+    ///   non-capturing variant).
+    /// - `>= 0` on success: the *total* created-edge count produced by the
+    ///   operator. Up to `min(total, out_cap)` pointers are written to
+    ///   `out_buf` in the slot's emit order; if `total > out_cap` the buffer
+    ///   was undersized.
+    ///
+    /// `out_buf` may be null only when `out_cap` is zero (size-probing mode).
+    pub fn bms_connect_verts_out(
+        bm: *mut BMesh,
+        verts: *mut *mut BMVert,
+        verts_len: c_int,
+        faces_exclude: *mut *mut BMFace,
+        faces_exclude_len: c_int,
+        check_degenerate: bool,
+        out_buf: *mut *mut BMEdge,
+        out_cap: c_int,
+    ) -> c_int;
+
     /// Invoke BMesh's general-purpose `delete` BMOP on a mixed element
     /// buffer.
     ///

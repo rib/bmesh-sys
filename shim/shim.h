@@ -471,6 +471,48 @@ extern "C"
                                  BMEdge **edges, int edges_len,
                                  float dist);
 
+    /* Invoke BMesh's `connect_verts` operator on the supplied vertex set.
+     * For each face carrying two or more of the input verts as corners, the
+     * operator inserts edges between selected corner pairs and splits the
+     * face along them. Exposes all three BMOP input slots explicitly:
+     *
+     *   - `verts`            — the candidate corner verts to connect.
+     *   - `faces_exclude`    — faces that must not be split, even if they
+     *                          carry two or more input verts. May be null
+     *                          with a zero length.
+     *   - `check_degenerate` — when true, reject splits that would produce
+     *                          overlapping or self-intersecting geometry.
+     *
+     * Returns true on success, false if BMO_op_initf rejected the input. */
+    bool bms_connect_verts(BMesh *bm,
+                           BMVert **verts, int verts_len,
+                           BMFace **faces_exclude, int faces_exclude_len,
+                           bool check_degenerate);
+
+    /* Capturing variant of `bms_connect_verts`.
+     *
+     * Runs the same `connect_verts` BMOP but, in addition to performing the
+     * splits, copies the operator's `edges.out` slot (the edges created by
+     * the face splits) into the caller-supplied buffer `out_buf` of capacity
+     * `out_cap` edge slots.
+     *
+     * Return value:
+     *   -1  on operator init failure (matches the `false` return of the
+     *       non-capturing variant).
+     *   >= 0 on success: the *total* number of edges the slot produced. Up
+     *       to `min(total, out_cap)` pointers are written to `out_buf` (in
+     *       the slot's emit order). If the returned count exceeds `out_cap`,
+     *       the buffer was undersized.
+     *
+     * `out_buf` may be null only when `out_cap` is zero; in that case the
+     * function still runs the operator and returns the created-edge count
+     * for sizing purposes. */
+    int bms_connect_verts_out(BMesh *bm,
+                              BMVert **verts, int verts_len,
+                              BMFace **faces_exclude, int faces_exclude_len,
+                              bool check_degenerate,
+                              BMEdge **out_buf, int out_cap);
+
     /* Read / write typed values at a layer offset on any BM element. */
     void bms_elem_get_float(void *elem, int offset, float *out);
     void bms_elem_set_float(void *elem, int offset, float value);
