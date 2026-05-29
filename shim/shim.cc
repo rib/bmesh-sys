@@ -1130,11 +1130,17 @@ extern "C"
             }
         }
 
-        BMIter it;
-        BMFace *f;
-        BM_ITER_MESH(f, &it, bm, BM_FACES_OF_MESH)
+        /* This entry point reproduces a face-set region extrude: naming a face
+         * implies its closure (its edges and verts), so tagging the input
+         * faces alone and handing the operator geom=%hf yields the same
+         * topology as enumerating the region's verts and edges explicitly. */
         {
-            BM_elem_flag_disable(f, BM_ELEM_TAG);
+            BMIter it;
+            BMFace *f;
+            BM_ITER_MESH(f, &it, bm, BM_FACES_OF_MESH)
+            {
+                BM_elem_flag_disable(f, BM_ELEM_TAG);
+            }
         }
         for (int i = 0; i < faces_len; i++)
         {

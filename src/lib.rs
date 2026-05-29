@@ -410,14 +410,13 @@ unsafe extern "C" {
 
     /// Extrude a region of faces, forwarding the operator's
     /// `use_dissolve_ortho_edges` slot. Refreshes face normals, then tags each
-    /// input face and passes the faces as the operator's `geom` input. When
-    /// `use_dissolve_ortho_edges` is true, side (wall) faces that end up lying
-    /// in the plane of the extruded region are dissolved back into the
-    /// surround, and the verts left as edge-pairs by those merges are
-    /// collapsed. `use_keep_orig` and `use_normal_flip` are forwarded too.
-    ///
-    /// Unlike [`bms_extrude_face_region_ex`], the input faces are not killed
-    /// after the op; the surrounding geometry is left intact.
+    /// input face with `BM_ELEM_TAG` and passes the faces as the operator's
+    /// `geom` input (a face-set region extrude, where naming a face implies its
+    /// closure of edges and verts). When `use_dissolve_ortho_edges` is true,
+    /// side (wall) faces that end up lying in the plane of the extruded region
+    /// are dissolved back into the surround, and the verts left as edge-pairs
+    /// by those merges are collapsed. `use_keep_orig` and `use_normal_flip` are
+    /// forwarded too. No originals are killed by this wrapper.
     ///
     /// Returns false if the operator rejected the input.
     ///
