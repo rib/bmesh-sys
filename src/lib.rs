@@ -1041,9 +1041,9 @@ pub enum CdType {
     /// `CD_PROP_INT32`
     Int32 = 11,
     /// `CD_PROP_COLOR` — 4× `f32`.
-    Color = 37,
+    Color = 47,
     /// `CD_PROP_FLOAT3`
-    Float3 = 47,
+    Float3 = 48,
     /// `CD_PROP_FLOAT2`
     Float2 = 49,
 }

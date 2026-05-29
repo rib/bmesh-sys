@@ -132,7 +132,7 @@ extern "C"
     /* ---- Customdata layer access. ---- */
     /* `domain` is one of: 0=vert, 1=edge, 2=loop, 3=face. */
     /* `type` is an eCustomDataType value (CD_PROP_FLOAT=10, CD_PROP_INT32=11, */
-    /*  CD_PROP_FLOAT2=49, CD_PROP_FLOAT3=47, CD_PROP_COLOR=37 etc.). */
+    /*  CD_PROP_FLOAT2=49, CD_PROP_FLOAT3=48, CD_PROP_COLOR=47 etc.). */
     /* Returns the layer's byte offset inside a per-element CD block, or -1   */
     /* on error. */
     int bms_layer_add_named(BMesh *bm, int domain, int type, const char *name);
