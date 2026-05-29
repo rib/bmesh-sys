@@ -150,6 +150,23 @@ extern "C"
     /* use_normal_flip=false. */
     bool bms_extrude_face_region(BMesh *bm, BMFace **faces, int faces_len);
 
+    /* Extrude a region of faces, forwarding the operator's `edges_exclude` set. */
+    /* Marks each input face with BM_ELEM_TAG and passes them as the operator's  */
+    /* `geom` input, then populates the `edges_exclude` mapping slot with each   */
+    /* edge in `edges_exclude[0..edges_exclude_len]`; excluded edges are not      */
+    /* split off into the extruded region (their adjacent geometry stays joined  */
+    /* to the original). `edges_exclude` may be null with edges_exclude_len == 0 */
+    /* to request no exclusions. `use_keep_orig` and `use_normal_flip` are        */
+    /* forwarded to the operator. Unlike bms_extrude_face_region_ex, the input    */
+    /* faces are not killed after the op; deletion of selection-interior          */
+    /* originals is left to the operator under use_keep_orig=false. Returns true  */
+    /* on success, false if the operator rejected the input. */
+    bool bms_extrude_face_region_exclude(BMesh *bm,
+                                         BMFace **faces, int faces_len,
+                                         BMEdge **edges_exclude, int edges_exclude_len,
+                                         bool use_keep_orig,
+                                         bool use_normal_flip);
+
     /* Extrude faces individually (discrete). Marks each input face with         */
     /* BM_ELEM_TAG, then invokes BMesh's `extrude_discrete_faces` operator. Each */
     /* input face is extruded on its own, so two formerly-adjacent input faces   */

@@ -312,6 +312,37 @@ unsafe extern "C" {
         faces_len: c_int,
     ) -> bool;
 
+    /// Extrudes a region of faces while forwarding the operator's
+    /// `edges_exclude` set.
+    ///
+    /// `faces` points to `faces_len` `*mut BMFace`; each is passed as the
+    /// operator's `geom` input. `edges_exclude` points to `edges_exclude_len`
+    /// `*mut BMEdge` inserted into the operator's `edges_exclude` mapping slot;
+    /// it may be null when `edges_exclude_len == 0` to request no exclusions.
+    /// `use_keep_orig` and `use_normal_flip` are forwarded to the operator.
+    ///
+    /// Unlike [`bms_extrude_face_region_ex`], the input faces are not killed
+    /// after the op; deletion of selection-interior originals is left to the
+    /// operator under `use_keep_orig = false`.
+    ///
+    /// Returns false if the operator rejected the input.
+    ///
+    /// # Safety
+    ///
+    /// `bm` must be a valid mesh. `faces` must be valid for `faces_len`
+    /// elements and `edges_exclude` valid for `edges_exclude_len` elements
+    /// (or null when the length is zero). All referenced elements must belong
+    /// to `bm`.
+    pub fn bms_extrude_face_region_exclude(
+        bm: *mut BMesh,
+        faces: *mut *mut BMFace,
+        faces_len: c_int,
+        edges_exclude: *mut *mut BMEdge,
+        edges_exclude_len: c_int,
+        use_keep_orig: bool,
+        use_normal_flip: bool,
+    ) -> bool;
+
     /// Marks each input face with `BM_ELEM_TAG`, then invokes BMesh's
     /// `extrude_discrete_faces` operator. Each face is extruded individually,
     /// so two formerly-adjacent input faces split apart along their shared

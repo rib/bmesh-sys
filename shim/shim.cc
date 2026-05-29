@@ -974,6 +974,50 @@ extern "C"
         return bms_extrude_face_region_ex(bm, faces, faces_len, false);
     }
 
+    bool bms_extrude_face_region_exclude(BMesh *bm,
+                                         BMFace **faces, int faces_len,
+                                         BMEdge **edges_exclude, int edges_exclude_len,
+                                         bool use_keep_orig,
+                                         bool use_normal_flip)
+    {
+        using namespace blender;
+        BMIter it;
+        BMFace *f;
+        BM_ITER_MESH(f, &it, bm, BM_FACES_OF_MESH)
+        {
+            BM_elem_flag_disable(f, BM_ELEM_TAG);
+        }
+        for (int i = 0; i < faces_len; i++)
+        {
+            BM_elem_flag_enable(faces[i], BM_ELEM_TAG);
+        }
+
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "extrude_face_region geom=%hf use_keep_orig=%b use_normal_flip=%b",
+                          BM_ELEM_TAG,
+                          use_keep_orig,
+                          use_normal_flip))
+        {
+            return false;
+        }
+
+        if (edges_exclude && edges_exclude_len > 0)
+        {
+            BMOpSlot *slot = BMO_slot_get(op.slots_in, "edges_exclude");
+            for (int i = 0; i < edges_exclude_len; i++)
+            {
+                BMO_slot_map_insert(&op, slot, edges_exclude[i], nullptr);
+            }
+        }
+
+        BMO_op_exec(bm, &op);
+        BMO_op_finish(bm, &op);
+        return true;
+    }
+
     /* ---- Extrude (BMesh operator: extrude_discrete_faces) ---- */
     /*
      * Marks each input face with BM_ELEM_TAG (after clearing TAG on every other
