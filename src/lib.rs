@@ -342,6 +342,37 @@ unsafe extern "C" {
         faces_len: c_int,
     ) -> bool;
 
+    /// Marks each input edge with `BM_ELEM_TAG`, then invokes BMesh's
+    /// `extrude_edge_only` operator. Each input edge gains one wall quad
+    /// spanning the original edge and its lifted duplicate; a contiguous strip
+    /// of input edges produces a continuous ribbon sharing vertical edges
+    /// between adjacent walls.
+    ///
+    /// The originals are kept in place (no post-op kill), so input edges, verts
+    /// and faces remain valid after the call.
+    ///
+    /// `use_normal_flip` is forwarded to the operator; when `true` it reverses
+    /// the winding of each wall quad.
+    ///
+    /// `edges` must point to `edges_len` valid `*mut BMEdge` belonging to `bm`.
+    /// Returns false if the operator rejected the input.
+    pub fn bms_extrude_edge_only_ex(
+        bm: *mut BMesh,
+        edges: *mut *mut BMEdge,
+        edges_len: c_int,
+        use_normal_flip: bool,
+    ) -> bool;
+
+    /// Convenience wrapper for [`bms_extrude_edge_only_ex`] with
+    /// `use_normal_flip = false`.
+    ///
+    /// Returns false if the operator rejected the input.
+    pub fn bms_extrude_edge_only(
+        bm: *mut BMesh,
+        edges: *mut *mut BMEdge,
+        edges_len: c_int,
+    ) -> bool;
+
     /// Marks each input face with `BM_ELEM_TAG`, then invokes BMesh's
     /// `inset_region` operator. Every parameter the operator exposes is
     /// forwarded explicitly so A/B tests can pin each parameter axis.

@@ -166,6 +166,22 @@ extern "C"
     /* use_normal_flip=false. */
     bool bms_extrude_discrete_faces(BMesh *bm, BMFace **faces, int faces_len);
 
+    /* Extrude edges only. Marks each input edge with BM_ELEM_TAG, then invokes  */
+    /* BMesh's `extrude_edge_only` operator. Each input edge gains one wall quad  */
+    /* spanning the original edge and its lifted duplicate; a contiguous strip   */
+    /* of input edges produces a continuous ribbon sharing vertical edges        */
+    /* between adjacent walls. The original edges/verts/faces are kept in place  */
+    /* (they may still attach to non-input surrounding faces), so this shim      */
+    /* performs no post-op kill. `use_normal_flip` is forwarded to the operator; */
+    /* when true it reverses the winding of each wall quad. Returns true on      */
+    /* success, false if the operator rejected the input. */
+    bool bms_extrude_edge_only_ex(BMesh *bm, BMEdge **edges, int edges_len,
+                                  bool use_normal_flip);
+
+    /* Convenience wrapper for bms_extrude_edge_only_ex with                      */
+    /* use_normal_flip=false. */
+    bool bms_extrude_edge_only(BMesh *bm, BMEdge **edges, int edges_len);
+
     /* Inset a region of faces. Marks each input face with BM_ELEM_TAG, then
      * invokes BMesh's `inset_region` operator. Every parameter the operator
      * exposes is forwarded explicitly so A/B tests can pin each parameter axis.

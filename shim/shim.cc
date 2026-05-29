@@ -1032,6 +1032,64 @@ extern "C"
         return bms_extrude_discrete_faces_ex(bm, faces, faces_len, false);
     }
 
+    /* ---- Extrude (BMesh operator: extrude_edge_only) ---- */
+    /*
+     * Marks each input edge with BM_ELEM_TAG (after clearing TAG on every other
+     * edge), then invokes the `extrude_edge_only` operator with the tagged edge
+     * set as input.
+     *
+     * Each input edge gains one wall quad spanning the original edge and its
+     * lifted duplicate; a contiguous strip of input edges produces a continuous
+     * ribbon sharing the vertical edges between adjacent walls.
+     *
+     * Unlike the region extrude shim, no post-op kill is performed: the original
+     * edges, verts and faces are kept in place (they may still attach to
+     * non-input surrounding faces). The body is simply init/exec/finish.
+     *
+     * `use_select_history` is left at false; it only affects editor selection
+     * state. `use_normal_flip` is forwarded verbatim; when true it reverses the
+     * winding of each wall quad.
+     *
+     * Caller is responsible for displacing the new verts after the call.
+     *
+     * Returns true on success, false if BMO_op_initf rejected the input.
+     */
+    bool bms_extrude_edge_only_ex(BMesh *bm, BMEdge **edges, int edges_len,
+                                  bool use_normal_flip)
+    {
+        using namespace blender;
+        BMIter it;
+        BMEdge *e;
+        BM_ITER_MESH(e, &it, bm, BM_EDGES_OF_MESH)
+        {
+            BM_elem_flag_disable(e, BM_ELEM_TAG);
+        }
+        for (int i = 0; i < edges_len; i++)
+        {
+            BM_elem_flag_enable(edges[i], BM_ELEM_TAG);
+        }
+
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "extrude_edge_only edges=%he use_normal_flip=%b use_select_history=%b",
+                          BM_ELEM_TAG,
+                          use_normal_flip,
+                          false))
+        {
+            return false;
+        }
+        BMO_op_exec(bm, &op);
+        BMO_op_finish(bm, &op);
+        return true;
+    }
+
+    bool bms_extrude_edge_only(BMesh *bm, BMEdge **edges, int edges_len)
+    {
+        return bms_extrude_edge_only_ex(bm, edges, edges_len, false);
+    }
+
     /* ---- Inset (BMesh operators: inset_region / inset_individual) ---- */
     /*
      * Both inset variants are exposed as one shim each. The `faces` set is
