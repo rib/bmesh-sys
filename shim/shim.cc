@@ -1638,6 +1638,28 @@ extern "C"
         return true;
     }
 
+    /* ---- Collapse (BMesh operator: collapse) ---- */
+
+    bool bms_collapse(BMesh *bm,
+                      BMEdge **edges, int edges_len,
+                      bool uvs)
+    {
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "collapse edges=%eb uvs=%b",
+                          reinterpret_cast<BMHeader **>(edges),
+                          edges_len,
+                          uvs))
+        {
+            return false;
+        }
+        BMO_op_exec(bm, &op);
+        BMO_op_finish(bm, &op);
+        return true;
+    }
+
     /* ---- Connect verts (BMesh operator: connect_verts) ---- */
 
     bool bms_connect_verts(BMesh *bm,

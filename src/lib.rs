@@ -709,6 +709,24 @@ unsafe extern "C" {
         dist: f32,
     ) -> bool;
 
+    /// Invoke BMesh's `collapse` BMOP on the supplied edge set. Collapses
+    /// each connected group of input edges to a single vertex, welding their
+    /// endpoints together and removing the now-degenerate geometry.
+    ///
+    /// - `edges` — the edges to collapse. The pointer may be null only when
+    ///   `edges_len == 0`, in which case nothing is collapsed.
+    /// - `uvs` — when true, also blend the per-loop custom data (UVs, vertex
+    ///   colours, etc.) of the welded corners.
+    ///
+    /// The mesh is mutated in place; there is no output. Returns false if the
+    /// operator rejected the input, true on normal completion.
+    pub fn bms_collapse(
+        bm: *mut BMesh,
+        edges: *mut *mut BMEdge,
+        edges_len: c_int,
+        uvs: bool,
+    ) -> bool;
+
     /// Invoke BMesh's `connect_verts` BMOP on the supplied vertex set. For
     /// each face carrying two or more of the input verts as corners, inserts
     /// edges between selected corner pairs and splits the face. All three

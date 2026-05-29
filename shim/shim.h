@@ -558,6 +558,23 @@ extern "C"
                                  BMEdge **edges, int edges_len,
                                  float dist);
 
+    /* Invoke BMesh's `collapse` operator on the supplied edge set. Collapses
+     * each connected group of input edges to a single vertex, welding their
+     * endpoints together and removing the now-degenerate geometry.
+     *
+     * Parameters map 1:1 onto the operator's slots:
+     *
+     *   - `edges` — the edges to collapse. The buffer may be null only when
+     *               `edges_len == 0`, in which case nothing is collapsed.
+     *   - `uvs`   — when true, also blend the per-loop custom data (UVs,
+     *               vertex colours, etc.) of the welded corners.
+     *
+     * The mesh is mutated in place; there is no output slot. Returns true on
+     * normal completion, false if BMO_op_initf rejected the input. */
+    bool bms_collapse(BMesh *bm,
+                      BMEdge **edges, int edges_len,
+                      bool uvs);
+
     /* Invoke BMesh's `connect_verts` operator on the supplied vertex set.
      * For each face carrying two or more of the input verts as corners, the
      * operator inserts edges between selected corner pairs and splits the
