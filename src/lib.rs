@@ -862,6 +862,25 @@ unsafe extern "C" {
         dist: f32,
         use_connected: bool,
     ) -> bool;
+
+    /// Run BMesh's `pointmerge` operator: move every input vert onto
+    /// `merge_co` and weld the set together onto a single survivor (the first
+    /// input vert), mutating the mesh's topology in place. There is no output
+    /// map; inspect the mesh after the call.
+    ///
+    /// `verts` is an array of `*mut BMVert` of length `verts_len`; it may be
+    /// null only when `verts_len` is zero. `merge_co` must point to three
+    /// readable `f32` (the target position); its contents are copied and left
+    /// unmodified. Element pointers must remain valid for the duration of the
+    /// call.
+    ///
+    /// Returns false if the operator rejected the input.
+    pub fn bms_pointmerge(
+        bm: *mut BMesh,
+        verts: *mut *mut BMVert,
+        verts_len: c_int,
+        merge_co: *const f32,
+    ) -> bool;
 }
 
 // ---- Delimit bits for `bms_dissolve_limit` ----

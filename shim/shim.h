@@ -455,6 +455,22 @@ extern "C"
                             BMVert **keep_verts, int keep_len,
                             float dist, bool use_connected);
 
+    /* Invoke BMesh's `pointmerge` operator, which moves every input vert onto
+     * the position `merge_co` and welds the whole set together onto a single
+     * survivor (the first vert in the input buffer), collapsing the topology.
+     * The mesh is mutated directly; there is no output slot to read back.
+     *
+     * Inputs map onto the operator's slots:
+     *   - `verts` / `verts_len`           — the BMVert* set to merge. May be
+     *                                       null with `verts_len == 0`.
+     *   - `merge_co`                       — the float[3] target position all
+     *                                       input verts are moved to.
+     *
+     * Returns true on success, false if BMO_op_initf rejected the input. */
+    bool bms_pointmerge(BMesh *bm,
+                        BMVert **verts, int verts_len,
+                        const float merge_co[3]);
+
     /* Invoke BMesh's `dissolve_limit` operator (a.k.a. "limited dissolve") on
      * the supplied edge + vert sets. Greedy heap-driven planar / co-linear
      * dissolve: every candidate whose dihedral angle stays within

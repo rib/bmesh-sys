@@ -1868,4 +1868,38 @@ extern "C"
         return true;
     }
 
+    /*
+     * Invoke BMesh's `pointmerge` operator: move every input vert onto
+     * `merge_co` and weld the set together onto a single survivor (the first
+     * vert in the input buffer). The operator mutates the mesh directly and
+     * has no output slot.
+     *
+     * `verts` is forwarded to the operator's `verts` element-buffer slot via
+     * the `%eb` format specifier; it may be null with a length of 0.
+     * `merge_co` sets the `merge_co` vec slot via `%v` (the operator copies
+     * the three floats, leaving the caller's buffer untouched).
+     *
+     * Returns true on success, false if BMO_op_initf rejected the input.
+     */
+    bool bms_pointmerge(BMesh *bm,
+                        BMVert **verts, int verts_len,
+                        const float merge_co[3])
+    {
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "pointmerge verts=%eb merge_co=%v",
+                          reinterpret_cast<BMHeader **>(verts),
+                          verts_len,
+                          const_cast<float *>(merge_co)))
+        {
+            return false;
+        }
+
+        BMO_op_exec(bm, &op);
+        BMO_op_finish(bm, &op);
+        return true;
+    }
+
 } /* extern "C" */
