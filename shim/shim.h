@@ -150,6 +150,22 @@ extern "C"
     /* use_normal_flip=false. */
     bool bms_extrude_face_region(BMesh *bm, BMFace **faces, int faces_len);
 
+    /* Extrude faces individually (discrete). Marks each input face with         */
+    /* BM_ELEM_TAG, then invokes BMesh's `extrude_discrete_faces` operator. Each */
+    /* input face is extruded on its own, so two formerly-adjacent input faces   */
+    /* split apart along their shared edge rather than lifting as one connected  */
+    /* region. The operator itself deletes the original faces (keeping their     */
+    /* edges/verts as wall bottoms), so this shim performs no post-op kill.      */
+    /* `use_normal_flip` is forwarded to the operator; when true it reverses the */
+    /* winding of the side (wall) faces. Returns true on success, false if the   */
+    /* operator rejected the input. */
+    bool bms_extrude_discrete_faces_ex(BMesh *bm, BMFace **faces, int faces_len,
+                                       bool use_normal_flip);
+
+    /* Convenience wrapper for bms_extrude_discrete_faces_ex with                 */
+    /* use_normal_flip=false. */
+    bool bms_extrude_discrete_faces(BMesh *bm, BMFace **faces, int faces_len);
+
     /* Inset a region of faces. Marks each input face with BM_ELEM_TAG, then
      * invokes BMesh's `inset_region` operator. Every parameter the operator
      * exposes is forwarded explicitly so A/B tests can pin each parameter axis.

@@ -974,6 +974,64 @@ extern "C"
         return bms_extrude_face_region_ex(bm, faces, faces_len, false);
     }
 
+    /* ---- Extrude (BMesh operator: extrude_discrete_faces) ---- */
+    /*
+     * Marks each input face with BM_ELEM_TAG (after clearing TAG on every other
+     * face), then invokes the `extrude_discrete_faces` operator with the tagged
+     * face set as input.
+     *
+     * Each input face is extruded independently: two formerly-adjacent input
+     * faces split apart along their shared edge instead of lifting as a single
+     * connected region (the perimeter between them becomes a doubled wall).
+     *
+     * Unlike the region extrude shim, no post-op kill is performed. This
+     * operator already deletes the original faces internally (DEL_ONLYFACES),
+     * leaving their edges and verts as the bottoms of the new wall quads, so
+     * every input face ends up replaced by its lifted duplicate.
+     *
+     * `use_select_history` is left at its default (false); it only affects
+     * editor selection state. `use_normal_flip` is forwarded verbatim; when
+     * true it reverses the winding of the side (wall) faces.
+     *
+     * Caller is responsible for displacing the new verts after the call.
+     *
+     * Returns true on success, false if BMO_op_initf rejected the input.
+     */
+    bool bms_extrude_discrete_faces_ex(BMesh *bm, BMFace **faces, int faces_len,
+                                       bool use_normal_flip)
+    {
+        using namespace blender;
+        BMIter it;
+        BMFace *f;
+        BM_ITER_MESH(f, &it, bm, BM_FACES_OF_MESH)
+        {
+            BM_elem_flag_disable(f, BM_ELEM_TAG);
+        }
+        for (int i = 0; i < faces_len; i++)
+        {
+            BM_elem_flag_enable(faces[i], BM_ELEM_TAG);
+        }
+
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "extrude_discrete_faces faces=%hf use_normal_flip=%b",
+                          BM_ELEM_TAG,
+                          use_normal_flip))
+        {
+            return false;
+        }
+        BMO_op_exec(bm, &op);
+        BMO_op_finish(bm, &op);
+        return true;
+    }
+
+    bool bms_extrude_discrete_faces(BMesh *bm, BMFace **faces, int faces_len)
+    {
+        return bms_extrude_discrete_faces_ex(bm, faces, faces_len, false);
+    }
+
     /* ---- Inset (BMesh operators: inset_region / inset_individual) ---- */
     /*
      * Both inset variants are exposed as one shim each. The `faces` set is
