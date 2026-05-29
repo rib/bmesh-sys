@@ -408,6 +408,32 @@ unsafe extern "C" {
         use_normal_from_adjacent: bool,
     ) -> bool;
 
+    /// Extrude a region of faces, forwarding the operator's
+    /// `use_dissolve_ortho_edges` slot. Marks each input face with
+    /// `BM_ELEM_TAG` and passes them as the operator's `geom` input. When
+    /// `use_dissolve_ortho_edges` is true, side (wall) faces that end up lying
+    /// in the plane of the extruded region are dissolved back into the
+    /// surround, and the verts left as edge-pairs by those merges are
+    /// collapsed. `use_keep_orig` and `use_normal_flip` are forwarded too.
+    ///
+    /// Unlike [`bms_extrude_face_region_ex`], the input faces are not killed
+    /// after the op; the surrounding geometry is left intact.
+    ///
+    /// Returns false if the operator rejected the input.
+    ///
+    /// # Safety
+    ///
+    /// `bm` must be a valid mesh. `faces` must be valid for `faces_len`
+    /// elements and all referenced faces must belong to `bm`.
+    pub fn bms_extrude_face_region_dissolve_ortho(
+        bm: *mut BMesh,
+        faces: *mut *mut BMFace,
+        faces_len: c_int,
+        use_keep_orig: bool,
+        use_normal_flip: bool,
+        use_dissolve_ortho_edges: bool,
+    ) -> bool;
+
     /// Marks each input face with `BM_ELEM_TAG`, then invokes BMesh's
     /// `extrude_discrete_faces` operator. Each face is extruded individually,
     /// so two formerly-adjacent input faces split apart along their shared
