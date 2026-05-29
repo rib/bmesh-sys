@@ -343,6 +343,43 @@ unsafe extern "C" {
         use_normal_flip: bool,
     ) -> bool;
 
+    /// Extrudes over the operator's native mixed `geom` element buffer.
+    ///
+    /// `geom` is a type-erased element buffer (the `%eb` slot format): a
+    /// pointer to `geom_len` [`BMHeader`] pointers that may freely mix
+    /// vert / edge / face pointers in a single call (the header is the
+    /// first field of every element, so each may be cast to `*mut BMHeader`).
+    /// The operator routes each element kind on its own: faces drive a
+    /// connected region extrude, edges build edge-only walls, and loose
+    /// verts spawn a connecting wire edge to their lifted duplicate.
+    ///
+    /// `edges_exclude` points to `edges_exclude_len` `*mut BMEdge` inserted
+    /// into the operator's `edges_exclude` mapping slot; it may be null when
+    /// `edges_exclude_len == 0` to request no exclusions. `use_keep_orig`
+    /// and `use_normal_flip` are forwarded verbatim.
+    ///
+    /// No input elements are killed after the op; deletion of
+    /// selection-interior originals is left to BMesh, so loose verts and
+    /// wire edges (which have no interior) are preserved.
+    ///
+    /// Returns false if the operator rejected the input.
+    ///
+    /// # Safety
+    ///
+    /// `bm` must be a valid mesh. `geom` must be valid for `geom_len`
+    /// elements and `edges_exclude` valid for `edges_exclude_len` elements
+    /// (or null when the length is zero). All referenced elements must
+    /// belong to `bm`.
+    pub fn bms_extrude_face_region_geom(
+        bm: *mut BMesh,
+        geom: *mut *mut BMHeader,
+        geom_len: c_int,
+        edges_exclude: *mut *mut BMEdge,
+        edges_exclude_len: c_int,
+        use_keep_orig: bool,
+        use_normal_flip: bool,
+    ) -> bool;
+
     /// Extrudes a region of faces while forwarding the operator's
     /// `use_normal_from_adjacent` slot.
     ///

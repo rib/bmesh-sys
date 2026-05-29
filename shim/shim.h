@@ -167,6 +167,23 @@ extern "C"
                                          bool use_keep_orig,
                                          bool use_normal_flip);
 
+    /* Extrude over the operator's native mixed `geom` element buffer. `geom`     */
+    /* is a type-erased element buffer (%eb) of `geom_len` BMHeader* that may     */
+    /* freely mix vert / edge / face pointers in one call; the operator routes    */
+    /* each kind on its own (faces -> region extrude, edges -> edge-only walls,   */
+    /* loose verts -> connecting wire edge). `edges_exclude` populates the        */
+    /* operator's `edges_exclude` mapping slot; it may be null with               */
+    /* edges_exclude_len == 0 for no exclusions. `use_keep_orig` and              */
+    /* `use_normal_flip` are forwarded verbatim. No input elements are killed     */
+    /* after the op; deletion of selection-interior originals is left to BMesh,   */
+    /* so loose verts and wire edges (which have no interior) are preserved.      */
+    /* Returns true on success, false if the operator rejected the input. */
+    bool bms_extrude_face_region_geom(BMesh *bm,
+                                      BMHeader **geom, int geom_len,
+                                      BMEdge **edges_exclude, int edges_exclude_len,
+                                      bool use_keep_orig,
+                                      bool use_normal_flip);
+
     /* Extrude a region of faces, forwarding the operator's                      */
     /* `use_normal_from_adjacent` slot. Marks each input face with BM_ELEM_TAG    */
     /* and passes them as the operator's `geom` input. `use_keep_orig`,           */

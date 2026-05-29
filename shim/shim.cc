@@ -1018,6 +1018,61 @@ extern "C"
         return true;
     }
 
+    /*
+     * Extrude over the operator's native mixed `geom` element buffer.
+     *
+     * Unlike the `%hf` (faces-by-hflag) variants above, this seeds the
+     * `geom` slot with a type-erased element buffer (`%eb`), so the input
+     * may freely mix verts, edges, and faces in a single call. The operator
+     * routes each element kind on its own: faces drive a connected region
+     * extrude, edges build edge-only walls, and loose verts spawn a
+     * connecting wire edge to their lifted duplicate.
+     *
+     * `edges_exclude` populates the operator's `edges_exclude` mapping slot;
+     * excluded edges are not split off into the extruded region. It may be
+     * null with edges_exclude_len == 0 to request no exclusions.
+     *
+     * `use_keep_orig` and `use_normal_flip` are forwarded verbatim. No input
+     * elements are killed after the op: deletion of selection-interior
+     * originals is left entirely to BMesh, which correctly leaves loose verts
+     * and wire edges (which have no interior) in place.
+     *
+     * Returns true on success, false if BMO_op_initf rejected the input.
+     */
+    bool bms_extrude_face_region_geom(BMesh *bm,
+                                      BMHeader **geom, int geom_len,
+                                      BMEdge **edges_exclude, int edges_exclude_len,
+                                      bool use_keep_orig,
+                                      bool use_normal_flip)
+    {
+        using namespace blender;
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "extrude_face_region geom=%eb use_keep_orig=%b use_normal_flip=%b",
+                          reinterpret_cast<BMHeader **>(geom),
+                          geom_len,
+                          use_keep_orig,
+                          use_normal_flip))
+        {
+            return false;
+        }
+
+        if (edges_exclude && edges_exclude_len > 0)
+        {
+            BMOpSlot *slot = BMO_slot_get(op.slots_in, "edges_exclude");
+            for (int i = 0; i < edges_exclude_len; i++)
+            {
+                BMO_slot_map_insert(&op, slot, edges_exclude[i], nullptr);
+            }
+        }
+
+        BMO_op_exec(bm, &op);
+        BMO_op_finish(bm, &op);
+        return true;
+    }
+
     bool bms_extrude_face_region_normal_from_adjacent(BMesh *bm,
                                                       BMFace **faces, int faces_len,
                                                       bool use_keep_orig,
