@@ -1765,4 +1765,66 @@ extern "C"
         return true;
     }
 
+    /*
+     * Invoke BMesh's `find_doubles` operator, which detects coincident verts
+     * within `dist` and builds a vert -> vert merge map without altering
+     * topology.
+     *
+     * `verts` / `keep_verts` are forwarded to the operator's `verts` and
+     * `keep_verts` element-buffer slots via the `%eb` format specifier; either
+     * may be null with a length of 0. `dist` and `use_connected` set the
+     * matching float / bool input slots.
+     *
+     * After exec the `targetmap.out` MAP_ELEM slot is walked with a BMOIter:
+     * each iteration yields a source vert (the map key) and a target vert (the
+     * mapped pointer value). Couples are emitted into `out_pairs` flat as
+     * out_pairs[2*i] = src, out_pairs[2*i+1] = tar, up to `out_cap` couples.
+     *
+     * Returns the full entry count (which may exceed `out_cap`, leaving the
+     * map truncated in the output buffer), or -1 if BMO_op_initf rejected the
+     * input.
+     */
+    int bms_find_doubles(BMesh *bm,
+                         BMVert **verts, int verts_len,
+                         BMVert **keep_verts, int keep_len,
+                         float dist, bool use_connected,
+                         BMVert **out_pairs, int out_cap)
+    {
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "find_doubles verts=%eb keep_verts=%eb "
+                          "dist=%f use_connected=%b",
+                          reinterpret_cast<BMHeader **>(verts),
+                          verts_len,
+                          reinterpret_cast<BMHeader **>(keep_verts),
+                          keep_len,
+                          dist,
+                          use_connected))
+        {
+            return -1;
+        }
+
+        BMO_op_exec(bm, &op);
+
+        int count = 0;
+        BMOIter oiter;
+        BMVert *v_src = static_cast<BMVert *>(
+            BMO_iter_new(&oiter, op.slots_out, "targetmap.out", BM_VERT));
+        for (; v_src; v_src = static_cast<BMVert *>(BMO_iter_step(&oiter)))
+        {
+            BMVert *v_tar = static_cast<BMVert *>(BMO_iter_map_value_ptr(&oiter));
+            if (count < out_cap)
+            {
+                out_pairs[2 * count] = v_src;
+                out_pairs[2 * count + 1] = v_tar;
+            }
+            count++;
+        }
+
+        BMO_op_finish(bm, &op);
+        return count;
+    }
+
 } /* extern "C" */

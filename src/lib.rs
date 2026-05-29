@@ -808,6 +808,35 @@ unsafe extern "C" {
         pairs_len: c_int,
         use_centroid: bool,
     ) -> bool;
+
+    /// Run BMesh's `find_doubles` operator: detect groups of verts within
+    /// `dist` and build a vert -> vert merge map without modifying topology.
+    ///
+    /// `verts` / `keep_verts` are arrays of `*mut BMVert` of length
+    /// `verts_len` / `keep_len`; either may be null only when its length is
+    /// zero. Verts outside `keep_verts` can only merge onto a vert inside it.
+    /// Element pointers must remain valid for the duration of the call.
+    ///
+    /// On return, the `targetmap.out` map is written into `out_pairs` as flat
+    /// `(src, tar)` couples: `out_pairs[2*i]` is the source vert,
+    /// `out_pairs[2*i+1]` its target. `out_pairs` must point to at least
+    /// `2 * out_cap` writable `*mut BMVert` slots.
+    ///
+    /// Returns the total number of map entries. When that exceeds `out_cap`,
+    /// only the first `out_cap` couples are written, so a return value greater
+    /// than `out_cap` signals truncation. Returns -1 if the operator rejected
+    /// the input.
+    pub fn bms_find_doubles(
+        bm: *mut BMesh,
+        verts: *mut *mut BMVert,
+        verts_len: c_int,
+        keep_verts: *mut *mut BMVert,
+        keep_len: c_int,
+        dist: f32,
+        use_connected: bool,
+        out_pairs: *mut *mut BMVert,
+        out_cap: c_int,
+    ) -> c_int;
 }
 
 // ---- Delimit bits for `bms_dissolve_limit` ----

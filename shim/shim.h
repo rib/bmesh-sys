@@ -400,6 +400,36 @@ extern "C"
      * Returns true on success, false if BMO_op_initf rejected the input. */
     bool bms_weld_verts(BMesh *bm, BMVert **pairs, int pairs_len, bool use_centroid);
 
+    /* Invoke BMesh's `find_doubles` operator, which detects groups of
+     * coincident verts within `dist` and produces a vert -> vert merge map
+     * *without* modifying topology.
+     *
+     * Inputs map 1:1 onto the operator's slots:
+     *   - `verts` / `verts_len`           — the BMVert* set to search. May
+     *                                       be null with `verts_len == 0`.
+     *   - `keep_verts` / `keep_len`       — verts that must never be merged
+     *                                       away; verts outside this set can
+     *                                       only merge onto a vert inside it.
+     *                                       May be null with `keep_len == 0`.
+     *   - `dist`                          — maximum merge distance.
+     *   - `use_connected`                 — restrict pairing to verts joined
+     *                                       by existing topology.
+     *
+     * On success the operator's `targetmap.out` MAP_ELEM slot holds one entry
+     * per merged source vert (key = source BMVert*, value = target BMVert*).
+     * Each entry is written to `out_pairs` as a flat (src, tar) couple:
+     * `out_pairs[2*i]` is the source vert, `out_pairs[2*i+1]` its target.
+     * At most `out_cap` couples are written.
+     *
+     * Returns the total number of map entries, which may exceed `out_cap`
+     * (only the first `out_cap` couples are written in that case, so callers
+     * can detect truncation), or -1 if BMO_op_initf rejected the input. */
+    int bms_find_doubles(BMesh *bm,
+                         BMVert **verts, int verts_len,
+                         BMVert **keep_verts, int keep_len,
+                         float dist, bool use_connected,
+                         BMVert **out_pairs, int out_cap);
+
     /* Invoke BMesh's `dissolve_limit` operator (a.k.a. "limited dissolve") on
      * the supplied edge + vert sets. Greedy heap-driven planar / co-linear
      * dissolve: every candidate whose dihedral angle stays within
