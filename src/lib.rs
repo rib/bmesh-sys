@@ -409,8 +409,8 @@ unsafe extern "C" {
     ) -> bool;
 
     /// Extrude a region of faces, forwarding the operator's
-    /// `use_dissolve_ortho_edges` slot. Marks each input face with
-    /// `BM_ELEM_TAG` and passes them as the operator's `geom` input. When
+    /// `use_dissolve_ortho_edges` slot. Refreshes face normals, then tags each
+    /// input face and passes the faces as the operator's `geom` input. When
     /// `use_dissolve_ortho_edges` is true, side (wall) faces that end up lying
     /// in the plane of the extruded region are dissolved back into the
     /// surround, and the verts left as edge-pairs by those merges are

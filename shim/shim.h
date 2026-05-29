@@ -201,15 +201,15 @@ extern "C"
                                                       bool use_normal_from_adjacent);
 
     /* Extrude a region of faces, forwarding the operator's                       */
-    /* `use_dissolve_ortho_edges` slot. Marks each input face with BM_ELEM_TAG    */
-    /* and passes them as the operator's `geom` input. When                       */
-    /* `use_dissolve_ortho_edges` is true, side (wall) faces that end up lying in */
-    /* the plane of the extruded region are dissolved back into the surround as a */
-    /* post-pass, and the verts left as edge-pairs by those merges are collapsed. */
-    /* `use_keep_orig` and `use_normal_flip` are forwarded too. Like the other    */
-    /* region-extrude shims (other than _ex), the input faces are not killed      */
-    /* after the op. Returns true on success, false if the operator rejected the  */
-    /* input. */
+    /* `use_dissolve_ortho_edges` slot. Refreshes face normals, then marks each   */
+    /* input face with BM_ELEM_TAG and passes the faces as the operator's `geom`  */
+    /* input. When `use_dissolve_ortho_edges` is true, side (wall) faces that end */
+    /* up lying in the plane of the extruded region are dissolved back into the   */
+    /* surround as a post-pass (decided from the refreshed face normals), and the */
+    /* verts left as edge-pairs by those merges are collapsed. `use_keep_orig`    */
+    /* and `use_normal_flip` are forwarded too. Like the other region-extrude     */
+    /* shims (other than _ex), the input faces are not killed after the op.       */
+    /* Returns true on success, false if the operator rejected the input. */
     bool bms_extrude_face_region_dissolve_ortho(BMesh *bm,
                                                 BMFace **faces, int faces_len,
                                                 bool use_keep_orig,

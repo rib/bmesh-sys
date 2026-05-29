@@ -1115,6 +1115,21 @@ extern "C"
                                                 bool use_dissolve_ortho_edges)
     {
         using namespace blender;
+
+        /* The use_dissolve_ortho_edges post-pass reads cached face normals
+         * (f->no) to decide which boundary walls lie in the cap plane, so
+         * those normals must be current before the operator runs. Refresh
+         * per-face (mirrors bms_mesh_normals_update; avoids the TBB /
+         * loop-normal machinery BM_mesh_normals_update would pull in). */
+        {
+            BMFace *fn;
+            BMIter nit;
+            BM_ITER_MESH(fn, &nit, bm, BM_FACES_OF_MESH)
+            {
+                BM_face_normal_update(fn);
+            }
+        }
+
         BMIter it;
         BMFace *f;
         BM_ITER_MESH(f, &it, bm, BM_FACES_OF_MESH)
