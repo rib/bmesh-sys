@@ -1018,6 +1018,41 @@ extern "C"
         return true;
     }
 
+    bool bms_extrude_face_region_normal_from_adjacent(BMesh *bm,
+                                                      BMFace **faces, int faces_len,
+                                                      bool use_keep_orig,
+                                                      bool use_normal_flip,
+                                                      bool use_normal_from_adjacent)
+    {
+        using namespace blender;
+        BMIter it;
+        BMFace *f;
+        BM_ITER_MESH(f, &it, bm, BM_FACES_OF_MESH)
+        {
+            BM_elem_flag_disable(f, BM_ELEM_TAG);
+        }
+        for (int i = 0; i < faces_len; i++)
+        {
+            BM_elem_flag_enable(faces[i], BM_ELEM_TAG);
+        }
+
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "extrude_face_region geom=%hf use_keep_orig=%b use_normal_flip=%b use_normal_from_adjacent=%b",
+                          BM_ELEM_TAG,
+                          use_keep_orig,
+                          use_normal_flip,
+                          use_normal_from_adjacent))
+        {
+            return false;
+        }
+        BMO_op_exec(bm, &op);
+        BMO_op_finish(bm, &op);
+        return true;
+    }
+
     /* ---- Extrude (BMesh operator: extrude_discrete_faces) ---- */
     /*
      * Marks each input face with BM_ELEM_TAG (after clearing TAG on every other

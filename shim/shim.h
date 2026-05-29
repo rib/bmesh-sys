@@ -167,6 +167,22 @@ extern "C"
                                          bool use_keep_orig,
                                          bool use_normal_flip);
 
+    /* Extrude a region of faces, forwarding the operator's                      */
+    /* `use_normal_from_adjacent` slot. Marks each input face with BM_ELEM_TAG    */
+    /* and passes them as the operator's `geom` input. `use_keep_orig`,           */
+    /* `use_normal_flip`, and `use_normal_from_adjacent` are forwarded to the     */
+    /* operator. When `use_normal_from_adjacent` is true, the side (wall) faces   */
+    /* take their orientation from geometry adjacent to the extruded region       */
+    /* rather than from the region's own averaged normal. Unlike                  */
+    /* bms_extrude_face_region_ex, the input faces are not killed after the op;   */
+    /* the surrounding geometry is left intact. Returns true on success, false    */
+    /* if the operator rejected the input. */
+    bool bms_extrude_face_region_normal_from_adjacent(BMesh *bm,
+                                                      BMFace **faces, int faces_len,
+                                                      bool use_keep_orig,
+                                                      bool use_normal_flip,
+                                                      bool use_normal_from_adjacent);
+
     /* Extrude faces individually (discrete). Marks each input face with         */
     /* BM_ELEM_TAG, then invokes BMesh's `extrude_discrete_faces` operator. Each */
     /* input face is extruded on its own, so two formerly-adjacent input faces   */
