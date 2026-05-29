@@ -384,6 +384,22 @@ extern "C"
      * Returns true on success, false if BMO_op_initf rejected the input. */
     bool bms_delete_geom(BMesh *bm, BMHeader **geom, int geom_len, int context);
 
+    /* Invoke BMesh's `weld_verts` operator, welding each source vert onto a
+     * target vert.
+     *
+     * `pairs` is a flat array of `2 * pairs_len` BMVert* laid out as
+     * consecutive (src, tar) couples: `pairs[2*i]` is the source vert welded
+     * onto target `pairs[2*i+1]`. Each couple is inserted into the operator's
+     * `targetmap` mapping slot (source vert as map key, target vert as mapped
+     * value). `pairs` may be null with `pairs_len == 0` for an empty input.
+     *
+     * `use_centroid` sets the operator's `use_centroid` bool slot: when true
+     * each merged group settles at the centroid of its members, otherwise the
+     * group adopts the target vert's position.
+     *
+     * Returns true on success, false if BMO_op_initf rejected the input. */
+    bool bms_weld_verts(BMesh *bm, BMVert **pairs, int pairs_len, bool use_centroid);
+
     /* Invoke BMesh's `dissolve_limit` operator (a.k.a. "limited dissolve") on
      * the supplied edge + vert sets. Greedy heap-driven planar / co-linear
      * dissolve: every candidate whose dihedral angle stays within

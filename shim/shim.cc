@@ -1719,4 +1719,50 @@ extern "C"
         return true;
     }
 
+    /*
+     * Invoke BMesh's `weld_verts` BMOP, welding each source vert onto its
+     * target vert.
+     *
+     * `pairs` is a flat array of 2 * pairs_len BMVert* laid out as
+     * consecutive (src, tar) couples: pairs[2*i] is the source vert welded
+     * onto target pairs[2*i+1]. Each couple becomes one entry in the
+     * operator's `targetmap` mapping slot via BMO_slot_map_insert, with the
+     * source vert as the map key and the target vert as the mapped value.
+     *
+     * `use_centroid` sets the operator's `use_centroid` bool slot: when true
+     * each merged group settles at the centroid of its members, otherwise the
+     * group adopts the target vert's position.
+     *
+     * Returns true on success, false if BMO_op_initf rejected the input.
+     */
+    bool bms_weld_verts(BMesh *bm,
+                        BMVert **pairs, int pairs_len,
+                        bool use_centroid)
+    {
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "weld_verts use_centroid=%b",
+                          use_centroid))
+        {
+            return false;
+        }
+
+        if (pairs && pairs_len > 0)
+        {
+            BMOpSlot *slot = BMO_slot_get(op.slots_in, "targetmap");
+            for (int i = 0; i < pairs_len; i++)
+            {
+                BMVert *v_src = pairs[2 * i];
+                BMVert *v_tar = pairs[2 * i + 1];
+                BMO_slot_map_insert(&op, slot, v_src, v_tar);
+            }
+        }
+
+        BMO_op_exec(bm, &op);
+        BMO_op_finish(bm, &op);
+        return true;
+    }
+
 } /* extern "C" */

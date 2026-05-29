@@ -785,6 +785,29 @@ unsafe extern "C" {
         geom_len: c_int,
         context: c_int,
     ) -> bool;
+
+    /// Invoke BMesh's `weld_verts` BMOP, welding each source vert onto a
+    /// target vert.
+    ///
+    /// `pairs` points to a flat buffer of `2 * pairs_len` [`BMVert`]
+    /// pointers laid out as consecutive `(src, tar)` couples: `pairs[2*i]`
+    /// is the source vert welded onto target `pairs[2*i+1]`. Each couple
+    /// populates one entry of the operator's `targetmap` mapping slot
+    /// (source as map key, target as mapped value). `pairs` may be null
+    /// only when `pairs_len` is zero. Element pointers must remain valid
+    /// for the duration of the call.
+    ///
+    /// `use_centroid` forwards the operator's `use_centroid` bool slot:
+    /// when true each merged group settles at the centroid of its members,
+    /// otherwise the group adopts the target vert's position.
+    ///
+    /// Returns false if the operator rejected the input.
+    pub fn bms_weld_verts(
+        bm: *mut BMesh,
+        pairs: *mut *mut BMVert,
+        pairs_len: c_int,
+        use_centroid: bool,
+    ) -> bool;
 }
 
 // ---- Delimit bits for `bms_dissolve_limit` ----
