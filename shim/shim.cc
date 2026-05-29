@@ -1090,6 +1090,54 @@ extern "C"
         return bms_extrude_edge_only_ex(bm, edges, edges_len, false);
     }
 
+    /* ---- Extrude (BMesh operator: extrude_vert_indiv) ---- */
+    /*
+     * Marks each input vert with BM_ELEM_TAG (after clearing TAG on every other
+     * vert), then invokes the `extrude_vert_indiv` operator with the tagged vert
+     * set as input.
+     *
+     * For each input vert the operator creates a duplicate vert at the same
+     * position and a fresh wire edge connecting the original to the duplicate.
+     * The operation is purely additive: the original verts are never deleted, so
+     * unlike the region extrude shim no post-op kill is performed. The body is
+     * simply init/exec/finish.
+     *
+     * `use_select_history` is left at false; it only affects editor selection
+     * state.
+     *
+     * Caller is responsible for displacing the new verts after the call.
+     *
+     * Returns true on success, false if BMO_op_initf rejected the input.
+     */
+    bool bms_extrude_vert_indiv(BMesh *bm, BMVert **verts, int verts_len)
+    {
+        using namespace blender;
+        BMIter it;
+        BMVert *v;
+        BM_ITER_MESH(v, &it, bm, BM_VERTS_OF_MESH)
+        {
+            BM_elem_flag_disable(v, BM_ELEM_TAG);
+        }
+        for (int i = 0; i < verts_len; i++)
+        {
+            BM_elem_flag_enable(verts[i], BM_ELEM_TAG);
+        }
+
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "extrude_vert_indiv verts=%hv use_select_history=%b",
+                          BM_ELEM_TAG,
+                          false))
+        {
+            return false;
+        }
+        BMO_op_exec(bm, &op);
+        BMO_op_finish(bm, &op);
+        return true;
+    }
+
     /* ---- Inset (BMesh operators: inset_region / inset_individual) ---- */
     /*
      * Both inset variants are exposed as one shim each. The `faces` set is

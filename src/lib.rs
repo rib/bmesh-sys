@@ -373,6 +373,23 @@ unsafe extern "C" {
         edges_len: c_int,
     ) -> bool;
 
+    /// Marks each input vert with `BM_ELEM_TAG`, then invokes BMesh's
+    /// `extrude_vert_indiv` operator. For each input vert a duplicate vert is
+    /// created at the same position and a fresh wire edge connects the original
+    /// to the duplicate.
+    ///
+    /// The operation is purely additive: the original verts are never deleted
+    /// (no post-op kill), so the input verts remain valid after the call. The
+    /// caller is responsible for displacing the new verts after the call.
+    ///
+    /// `verts` must point to `verts_len` valid `*mut BMVert` belonging to `bm`.
+    /// Returns false if the operator rejected the input.
+    pub fn bms_extrude_vert_indiv(
+        bm: *mut BMesh,
+        verts: *mut *mut BMVert,
+        verts_len: c_int,
+    ) -> bool;
+
     /// Marks each input face with `BM_ELEM_TAG`, then invokes BMesh's
     /// `inset_region` operator. Every parameter the operator exposes is
     /// forwarded explicitly so A/B tests can pin each parameter axis.

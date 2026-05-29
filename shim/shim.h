@@ -182,6 +182,15 @@ extern "C"
     /* use_normal_flip=false. */
     bool bms_extrude_edge_only(BMesh *bm, BMEdge **edges, int edges_len);
 
+    /* Extrude vertices individually. Marks each input vert with BM_ELEM_TAG,     */
+    /* then invokes BMesh's `extrude_vert_indiv` operator. For each input vert a   */
+    /* duplicate vert is created at the same position and a fresh wire edge        */
+    /* connects the original to the duplicate. The operation is purely additive:   */
+    /* the original verts are kept in place, so this shim performs no post-op      */
+    /* kill. The caller is responsible for displacing the new verts after the      */
+    /* call. Returns true on success, false if the operator rejected the input.   */
+    bool bms_extrude_vert_indiv(BMesh *bm, BMVert **verts, int verts_len);
+
     /* Inset a region of faces. Marks each input face with BM_ELEM_TAG, then
      * invokes BMesh's `inset_region` operator. Every parameter the operator
      * exposes is forwarded explicitly so A/B tests can pin each parameter axis.
