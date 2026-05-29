@@ -1827,4 +1827,45 @@ extern "C"
         return count;
     }
 
+    /*
+     * Invoke BMesh's `remove_doubles` operator: detect coincident verts within
+     * `dist` (using the same clustering as `find_doubles`) and weld each group
+     * in place. The operator mutates the mesh directly and has no output slot.
+     *
+     * `verts` is forwarded to the operator's `verts` element-buffer slot via
+     * the `%eb` format specifier; it may be null with a length of 0. `dist`
+     * and `use_connected` set the matching float / bool input slots.
+     *
+     * `keep_verts` / `keep_len` are accepted for signature parity with
+     * `bms_find_doubles`; the `remove_doubles` operator has no `keep_verts`
+     * slot, so they are intentionally unused.
+     *
+     * Returns true on success, false if BMO_op_initf rejected the input.
+     */
+    bool bms_remove_doubles(BMesh *bm,
+                            BMVert **verts, int verts_len,
+                            BMVert **keep_verts, int keep_len,
+                            float dist, bool use_connected)
+    {
+        (void)keep_verts;
+        (void)keep_len;
+
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "remove_doubles verts=%eb dist=%f use_connected=%b",
+                          reinterpret_cast<BMHeader **>(verts),
+                          verts_len,
+                          dist,
+                          use_connected))
+        {
+            return false;
+        }
+
+        BMO_op_exec(bm, &op);
+        BMO_op_finish(bm, &op);
+        return true;
+    }
+
 } /* extern "C" */

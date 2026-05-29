@@ -837,6 +837,31 @@ unsafe extern "C" {
         out_pairs: *mut *mut BMVert,
         out_cap: c_int,
     ) -> c_int;
+
+    /// Run BMesh's `remove_doubles` operator: detect groups of verts within
+    /// `dist` and weld each group in place, mutating the mesh's topology.
+    /// There is no output map; inspect the mesh after the call.
+    ///
+    /// `verts` is an array of `*mut BMVert` of length `verts_len`; it may be
+    /// null only when `verts_len` is zero. `dist` and `use_connected` control
+    /// the merge distance and whether pairing is restricted to connected
+    /// geometry. Element pointers must remain valid for the duration of the
+    /// call.
+    ///
+    /// `keep_verts` / `keep_len` are accepted for signature parity with
+    /// [`bms_find_doubles`]; the operator has no keep-verts slot, so they are
+    /// not forwarded. Pass null with `keep_len` zero.
+    ///
+    /// Returns false if the operator rejected the input.
+    pub fn bms_remove_doubles(
+        bm: *mut BMesh,
+        verts: *mut *mut BMVert,
+        verts_len: c_int,
+        keep_verts: *mut *mut BMVert,
+        keep_len: c_int,
+        dist: f32,
+        use_connected: bool,
+    ) -> bool;
 }
 
 // ---- Delimit bits for `bms_dissolve_limit` ----
