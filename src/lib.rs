@@ -278,8 +278,26 @@ unsafe extern "C" {
 
     /// Like `BM_face_poke` with offset=0: insert a centre vertex at the
     /// face's median position and fan-triangulate. Hand-composed in the
-    /// shim because the bmesh tools/ tree isn't vendored.
+    /// shim because the bmesh tools/ tree isn't vendored. Equivalent to
+    /// `bms_face_poke_mode(bm, face, 0)`. Returns the new centre vertex, or
+    /// null if the face has fewer than 3 corners (or exceeds the internal
+    /// ngon capacity).
     pub fn bms_face_poke(bm: *mut BMesh, face: *mut BMFace) -> *mut BMVert;
+
+    /// Like [`bms_face_poke`], but selects the poke centre formula via
+    /// `center_mode` (ordering matches the poke BMOP's `eCenterMode`):
+    /// `0` = MEAN (uniform centroid), `1` = BOUNDS (axis-aligned bbox
+    /// centre), `2` = MEAN_WEIGHTED (edge-length-weighted centroid, falling
+    /// back to MEAN when the total weight is non-positive). Any other value
+    /// behaves as MEAN. Only the centre position differs between modes; the
+    /// fan-triangulation and customdata interpolation are identical. Returns
+    /// the new centre vertex, or null if the face has fewer than 3 corners
+    /// (or exceeds the internal ngon capacity).
+    pub fn bms_face_poke_mode(
+        bm: *mut BMesh,
+        face: *mut BMFace,
+        center_mode: c_int,
+    ) -> *mut BMVert;
 
     /// bmesh: `BM_vert_dissolve`. Returns true on success, false if the
     /// vertex's topology is unsupported (and the mesh is left unchanged).

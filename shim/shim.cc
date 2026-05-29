@@ -22,6 +22,7 @@
 #include "BKE_customdata.hh"
 #include "BLI_heap.h"
 #include "BLI_math_geom.h"
+#include "BLI_math_vector.h"
 #include "BLI_memarena.h"
 #include "BLI_polyfill_2d.h"
 #include "BLI_polyfill_2d_beautify.h"
@@ -303,11 +304,85 @@ extern "C"
         return BM_vert_dissolve(bm, v);
     }
 
-    /* Face poke: insert a centre vertex at the face's median position and
-     * fan-triangulate. The bmesh tools/ tree's BM_face_poke isn't vendored, so
-     * we hand-compose using BM_face_create_verts after killing the original.
-     * Returns the new centre vertex. */
-    BMVert *bms_face_poke(BMesh *bm, BMFace *face)
+    /* Compute a poke centre over `n` perimeter vertices in face-cycle order.
+     * center_mode selects the formula:
+     *   0 = MEAN          arithmetic mean of corner positions.
+     *   1 = BOUNDS        per-axis (min + max) * 0.5 over corner positions.
+     *   2 = MEAN_WEIGHTED corner positions weighted by the sum of the two
+     *                     incident face-edge lengths; falls back to the
+     *                     arithmetic mean when the total weight is non-positive.
+     * Any other value behaves as MEAN. Ordering matches the poke BMOP's
+     * eCenterMode. */
+    static void bms_face_poke_center(BMVert *const *verts, int n, int center_mode,
+                                     float center[3])
+    {
+        if (center_mode == 1)
+        {
+            float vmin[3] = {verts[0]->co[0], verts[0]->co[1], verts[0]->co[2]};
+            float vmax[3] = {verts[0]->co[0], verts[0]->co[1], verts[0]->co[2]};
+            for (int i = 1; i < n; i++)
+            {
+                for (int a = 0; a < 3; a++)
+                {
+                    float c = verts[i]->co[a];
+                    if (c < vmin[a])
+                        vmin[a] = c;
+                    if (c > vmax[a])
+                        vmax[a] = c;
+                }
+            }
+            for (int a = 0; a < 3; a++)
+                center[a] = (vmin[a] + vmax[a]) * 0.5f;
+            return;
+        }
+
+        if (center_mode == 2)
+        {
+            float total = 0.0f;
+            float acc[3] = {0.0f, 0.0f, 0.0f};
+            for (int i = 0; i < n; i++)
+            {
+                int next = (i + 1) % n;
+                int prev = (i - 1 + n) % n;
+                float w = len_v3v3(verts[i]->co, verts[next]->co) +
+                          len_v3v3(verts[prev]->co, verts[i]->co);
+                acc[0] += verts[i]->co[0] * w;
+                acc[1] += verts[i]->co[1] * w;
+                acc[2] += verts[i]->co[2] * w;
+                total += w;
+            }
+            if (total > 0.0f)
+            {
+                center[0] = acc[0] / total;
+                center[1] = acc[1] / total;
+                center[2] = acc[2] / total;
+                return;
+            }
+            /* Fall through to the arithmetic mean below. */
+        }
+
+        center[0] = 0.0f;
+        center[1] = 0.0f;
+        center[2] = 0.0f;
+        for (int i = 0; i < n; i++)
+        {
+            center[0] += verts[i]->co[0];
+            center[1] += verts[i]->co[1];
+            center[2] += verts[i]->co[2];
+        }
+        center[0] /= (float)n;
+        center[1] /= (float)n;
+        center[2] /= (float)n;
+    }
+
+    /* Face poke with selectable centre formula. center_mode picks the poke
+     * centre (see bms_face_poke_center); everything else (perimeter/CD
+     * snapshot, face kill, centre vertex create, CD interp, fan-triangle
+     * build) is identical regardless of mode. The bmesh tools/ tree's
+     * BM_face_poke isn't vendored, so we hand-compose using
+     * BM_face_create_verts after killing the original. Returns the new centre
+     * vertex. */
+    BMVert *bms_face_poke_mode(BMesh *bm, BMFace *face, int center_mode)
     {
         int n = face->len;
         if (n < 3)
@@ -340,17 +415,9 @@ extern "C"
         void *face_cd = nullptr;
         CustomData_bmesh_copy_block(bm->pdata, face->head.data, &face_cd);
 
-        /* Median centre. */
-        float center[3] = {0.0f, 0.0f, 0.0f};
-        for (int i = 0; i < n; i++)
-        {
-            center[0] += verts[i]->co[0];
-            center[1] += verts[i]->co[1];
-            center[2] += verts[i]->co[2];
-        }
-        center[0] /= (float)n;
-        center[1] /= (float)n;
-        center[2] /= (float)n;
+        /* Poke centre, per the selected mode. */
+        float center[3];
+        bms_face_poke_center(verts, n, center_mode, center);
 
         /* Kill original face. This frees the source loop/face customdata,
          * which is why the snapshots above were taken first. */
@@ -418,6 +485,13 @@ extern "C"
         CustomData_bmesh_free_block(&bm->pdata, &face_cd);
 
         return v_center;
+    }
+
+    /* Face poke at the uniform-mean centre (MEAN mode); equivalent to
+     * bms_face_poke_mode(bm, face, 0). Returns the new centre vertex. */
+    BMVert *bms_face_poke(BMesh *bm, BMFace *face)
+    {
+        return bms_face_poke_mode(bm, face, 0);
     }
 
     /* Face-split-N. Finds the loops in `face` at vertices `v1` and `v2`, then
