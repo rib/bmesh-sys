@@ -1064,6 +1064,47 @@ unsafe extern "C" {
         out_face_cap: c_int,
         out_face_count: *mut c_int,
     ) -> c_int;
+
+    /// Invoke BMesh's `split` operator on the `geom` set, duplicating it
+    /// and tearing the copy off as a topologically disjoint set within the
+    /// same mesh. `geom` (length `geom_len`) is a mixed vert/edge/face
+    /// header buffer fed to the operator's `geom` in-slot; it may be null
+    /// with `geom_len` `0`. Element pointers must remain valid for the
+    /// duration of the call. `use_only_faces` suppresses duplication of
+    /// loose verts/edges.
+    ///
+    /// Outputs are written into caller-allocated buffers. Each `*_cap` is
+    /// the number of entries (or couples, for the maps) the buffer can
+    /// hold; any buffer may be null with its cap `0` to skip reading that
+    /// slot. Every buffer is filled up to its cap and the true count is
+    /// reported, so a count greater than the cap signals truncation.
+    ///
+    /// - `out_geom` receives the `geom.out` split-off elements (verts,
+    ///   edges, faces). It must hold at least `out_geom_cap`
+    ///   `*mut BMHeader`. The total count is the function's return value.
+    /// - `out_boundary_map` (edge->edge) and `out_isovert_map`
+    ///   (vert->vert) receive their mapping slots as flat `(src, dst)`
+    ///   couples: `buf[2*i]` is the key, `buf[2*i+1]` the mapped value, so
+    ///   each must hold at least `2 * cap` pointers. Per-slot couple counts
+    ///   are written through the `out_*_count` out-params (each may be null
+    ///   to ignore).
+    ///
+    /// Returns the total `geom.out` count, or -1 if the operator rejected
+    /// the input (in which case no out-params are written).
+    pub fn bms_split(
+        bm: *mut BMesh,
+        geom: *mut *mut BMHeader,
+        geom_len: c_int,
+        use_only_faces: bool,
+        out_geom: *mut *mut BMHeader,
+        out_geom_cap: c_int,
+        out_boundary_map: *mut *mut BMEdge,
+        out_boundary_cap: c_int,
+        out_boundary_count: *mut c_int,
+        out_isovert_map: *mut *mut BMVert,
+        out_isovert_cap: c_int,
+        out_isovert_count: *mut c_int,
+    ) -> c_int;
 }
 
 // ---- Delimit bits for `bms_dissolve_limit` ----

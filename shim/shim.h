@@ -534,6 +534,46 @@ extern "C"
                       BMFace **out_face_map, int out_face_cap,
                       int *out_face_count);
 
+    /* Invoke BMesh's `split` operator, which duplicates the supplied
+     * geometry and tears the copy off as a topologically disjoint set
+     * within the same mesh (the split-off copy replaces the selection's
+     * shared topology so the duplicate no longer shares verts/edges with
+     * the remainder).
+     *
+     * `geom` / `geom_len` are forwarded to the operator's `geom`
+     * element-buffer slot via the `%eb` specifier (a mixed BM_VERT |
+     * BM_EDGE | BM_FACE set); either may be null with a length of 0. The
+     * `dest` pointer slot is left unset, so the split copy lands in `bm`.
+     * `use_only_faces`, when true, suppresses duplication of loose
+     * verts/edges.
+     *
+     * After exec the output slots are read back into the caller's
+     * buffers:
+     *
+     *   - The `geom.out` element buffer is walked with a BMOIter
+     *     restricted to BM_ALL_NOLOOP and written into `out_geom` up to
+     *     `out_geom_cap` entries; its full count is the return value.
+     *   - The `boundary_map.out` (edge->edge) and `isovert_map.out`
+     *     (vert->vert) MAP_ELEM slots are each walked with a BMOIter and
+     *     emitted as flat (src, dst) couples (`buf[2*i]` key,
+     *     `buf[2*i+1]` value), up to the slot's `_cap` couples; the full
+     *     couple count is stored through the matching `_count` out-param
+     *     when that pointer is non-null. Each map buffer needs
+     *     `2 * cap` writable slots.
+     *
+     * Element pointers in `geom` must remain valid for the duration of
+     * the call. Returns the total `geom.out` count (which may exceed
+     * `out_geom_cap`), or -1 if BMO_op_initf rejected the input (in which
+     * case no out-params are written). */
+    int bms_split(BMesh *bm,
+                  BMHeader **geom, int geom_len,
+                  bool use_only_faces,
+                  BMHeader **out_geom, int out_geom_cap,
+                  BMEdge **out_boundary_map, int out_boundary_cap,
+                  int *out_boundary_count,
+                  BMVert **out_isovert_map, int out_isovert_cap,
+                  int *out_isovert_count);
+
     /* Invoke BMesh's `dissolve_limit` operator (a.k.a. "limited dissolve") on
      * the supplied edge + vert sets. Greedy heap-driven planar / co-linear
      * dissolve: every candidate whose dihedral angle stays within

@@ -2349,4 +2349,80 @@ extern "C"
         return geom_count;
     }
 
+    /* Invoke BMesh's `split` operator: duplicate `geom` and tear the copy
+     * off as a topologically disjoint set within `bm`. See shim.h for the
+     * slot mapping and read-back convention. */
+    int bms_split(BMesh *bm,
+                  BMHeader **geom, int geom_len,
+                  bool use_only_faces,
+                  BMHeader **out_geom, int out_geom_cap,
+                  BMEdge **out_boundary_map, int out_boundary_cap,
+                  int *out_boundary_count,
+                  BMVert **out_isovert_map, int out_isovert_cap,
+                  int *out_isovert_count)
+    {
+        using namespace blender;
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "split geom=%eb use_only_faces=%b",
+                          geom,
+                          geom_len,
+                          use_only_faces))
+        {
+            return -1;
+        }
+
+        BMO_op_exec(bm, &op);
+
+        /* Walk the `geom.out` element buffer (split-off verts/edges/faces). */
+        int geom_count = 0;
+        {
+            BMOIter oiter;
+            BMHeader *ele = static_cast<BMHeader *>(
+                BMO_iter_new(&oiter, op.slots_out, "geom.out", BM_ALL_NOLOOP));
+            for (; ele; ele = static_cast<BMHeader *>(BMO_iter_step(&oiter)))
+            {
+                if (geom_count < out_geom_cap)
+                {
+                    out_geom[geom_count] = ele;
+                }
+                geom_count++;
+            }
+        }
+
+        /* Read a MAP_ELEM slot as flat (key, value) couples. */
+        auto read_map = [&](const char *slot_name, int restrict_flag,
+                            void **out_buf, int cap, int *out_count) {
+            int count = 0;
+            BMOIter oiter;
+            void *key = BMO_iter_new(&oiter, op.slots_out, slot_name, restrict_flag);
+            for (; key; key = BMO_iter_step(&oiter))
+            {
+                void *val = BMO_iter_map_value_ptr(&oiter);
+                if (count < cap && out_buf)
+                {
+                    out_buf[2 * count] = key;
+                    out_buf[2 * count + 1] = val;
+                }
+                count++;
+            }
+            if (out_count)
+            {
+                *out_count = count;
+            }
+        };
+
+        read_map("boundary_map.out", BM_EDGE,
+                 reinterpret_cast<void **>(out_boundary_map),
+                 out_boundary_cap, out_boundary_count);
+        read_map("isovert_map.out", BM_VERT,
+                 reinterpret_cast<void **>(out_isovert_map),
+                 out_isovert_cap, out_isovert_count);
+
+        BMO_op_finish(bm, &op);
+        return geom_count;
+    }
+
 } /* extern "C" */
