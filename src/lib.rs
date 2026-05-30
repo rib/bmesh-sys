@@ -299,6 +299,23 @@ unsafe extern "C" {
         center_mode: c_int,
     ) -> *mut BMVert;
 
+    /// Like [`bms_face_poke_mode`], but additionally lifts the new centre
+    /// vertex along the source face's normal. `center_mode` selects the centre
+    /// formula exactly as in [`bms_face_poke_mode`]. The lift applied to the
+    /// centre vertex is `face_normal * offset * scale`, where `scale` is the
+    /// arithmetic mean of the corner-to-centre distances when
+    /// `use_relative_offset` is `true`, and `1.0` otherwise; it is applied
+    /// after customdata interpolation, so interpolation sees the un-lifted
+    /// position. Returns the new centre vertex, or null if the face has fewer
+    /// than 3 corners (or exceeds the internal ngon capacity).
+    pub fn bms_face_poke_offset(
+        bm: *mut BMesh,
+        face: *mut BMFace,
+        center_mode: c_int,
+        offset: f32,
+        use_relative_offset: bool,
+    ) -> *mut BMVert;
+
     /// bmesh: `BM_vert_dissolve`. Returns true on success, false if the
     /// vertex's topology is unsupported (and the mesh is left unchanged).
     pub fn bms_vert_dissolve(bm: *mut BMesh, v: *mut BMVert) -> bool;

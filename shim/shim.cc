@@ -494,6 +494,119 @@ extern "C"
         return bms_face_poke_mode(bm, face, 0);
     }
 
+    /* Face poke (see bms_face_poke_mode), but additionally lifts the new
+     * centre vertex along the source face's normal.
+     *   - center_mode selects the centre formula as in bms_face_poke_mode.
+     *   - The source face's normal is recomputed and captured before the
+     *     face is killed, then read into a local.
+     *   - base_center (the un-lifted centre) is stashed before lifting so the
+     *     relative scale uses corner-to-base-centre distances.
+     *   - scale = use_relative_offset
+     *           ? arithmetic mean over the corners of distance(base_center, co)
+     *           : 1.0f
+     *   - The lift is applied after the centre vertex's customdata interp
+     *     (so interpolation sees the un-lifted position):
+     *       v_center->co += face_normal * offset * scale
+     * Returns the new centre vertex, or null on failure. */
+    BMVert *bms_face_poke_offset(BMesh *bm, BMFace *face, int center_mode,
+                                 float offset, bool use_relative_offset)
+    {
+        int n = face->len;
+        if (n < 3)
+            return nullptr;
+
+        BMVert *verts[32];
+        if (n > (int)(sizeof(verts) / sizeof(verts[0])))
+            return nullptr;
+        void *loop_cd[32];
+        for (int i = 0; i < (int)(sizeof(loop_cd) / sizeof(loop_cd[0])); i++)
+            loop_cd[i] = nullptr;
+        BMLoop *l_first = BM_FACE_FIRST_LOOP(face);
+        BMLoop *l_iter = l_first;
+        int idx = 0;
+        do
+        {
+            verts[idx] = l_iter->v;
+            CustomData_bmesh_copy_block(bm->ldata, l_iter->head.data, &loop_cd[idx]);
+            idx++;
+            l_iter = l_iter->next;
+        } while (l_iter != l_first);
+
+        void *face_cd = nullptr;
+        CustomData_bmesh_copy_block(bm->pdata, face->head.data, &face_cd);
+
+        /* Poke centre, per the selected mode. */
+        float center[3];
+        bms_face_poke_center(verts, n, center_mode, center);
+
+        /* Stash the un-lifted centre for the relative-scale computation. */
+        float base_center[3] = {center[0], center[1], center[2]};
+
+        /* Capture the source face's normal before the face is killed. */
+        BM_face_normal_update(face);
+        float face_normal[3] = {face->no[0], face->no[1], face->no[2]};
+
+        /* Relative scale: arithmetic mean of corner-to-base-centre distances. */
+        float scale = 1.0f;
+        if (use_relative_offset)
+        {
+            float total = 0.0f;
+            for (int i = 0; i < n; i++)
+                total += len_v3v3(base_center, verts[i]->co);
+            scale = total / (float)n;
+        }
+
+        BM_face_kill(bm, face);
+
+        BMVert *v_center = BM_vert_create(bm, center, nullptr, BM_CREATE_NOP);
+
+        const void *src_blocks[32];
+        float weights[32];
+        float w = 1.0f / (float)n;
+        for (int i = 0; i < n; i++)
+        {
+            src_blocks[i] = verts[i]->head.data;
+            weights[i] = w;
+        }
+        CustomData_bmesh_interp(&bm->vdata, src_blocks, weights, n, v_center->head.data);
+
+        /* Apply the lift after customdata interp so interpolation sees the
+         * un-lifted centre position. */
+        madd_v3_v3fl(v_center->co, face_normal, offset * scale);
+
+        for (int i = 0; i < n; i++)
+        {
+            int j = (i + 1) % n;
+            BMVert *tri[3] = {verts[i], verts[j], v_center};
+            BMFace *f_new = BM_face_create_verts(bm, tri, 3, nullptr, BM_CREATE_NO_DOUBLE, true);
+            if (!f_new)
+                continue;
+
+            CustomData_bmesh_copy_block(bm->pdata, face_cd, &f_new->head.data);
+
+            BMLoop *l_i = BM_face_vert_share_loop(f_new, verts[i]);
+            BMLoop *l_j = BM_face_vert_share_loop(f_new, verts[j]);
+            BMLoop *l_c = BM_face_vert_share_loop(f_new, v_center);
+            if (l_i)
+                CustomData_bmesh_copy_block(bm->ldata, loop_cd[i], &l_i->head.data);
+            if (l_j)
+                CustomData_bmesh_copy_block(bm->ldata, loop_cd[j], &l_j->head.data);
+            if (l_c)
+            {
+                const void *loop_blocks[32];
+                for (int k = 0; k < n; k++)
+                    loop_blocks[k] = loop_cd[k];
+                CustomData_bmesh_interp(&bm->ldata, loop_blocks, weights, n, l_c->head.data);
+            }
+        }
+
+        for (int i = 0; i < n; i++)
+            CustomData_bmesh_free_block(&bm->ldata, &loop_cd[i]);
+        CustomData_bmesh_free_block(&bm->pdata, &face_cd);
+
+        return v_center;
+    }
+
     /* Face-split-N. Finds the loops in `face` at vertices `v1` and `v2`, then
      * delegates to BM_face_split_n which splits the face and inserts `n`
      * intermediate vertices along the new diagonal at the positions in `cos`.
