@@ -574,6 +574,48 @@ extern "C"
                   BMVert **out_isovert_map, int out_isovert_cap,
                   int *out_isovert_count);
 
+    /* Invoke BMesh's `mirror` operator, which duplicates the supplied
+     * geometry, reflects the duplicate by negating the chosen axis in the
+     * `matrix` space, flips the reflected faces' winding, and welds each
+     * reflected vert back onto its original when the original lies within
+     * `merge_dist` of the mirror plane.
+     *
+     * Slot mapping:
+     *   - `geom` / `geom_len` feed the `geom` element-buffer in-slot via
+     *     the `%eb` specifier (a mixed BM_VERT | BM_EDGE | BM_FACE set);
+     *     either may be null with a length of 0.
+     *   - `matrix` points to 16 floats defining the mirror transform space
+     *     fed to the operator's `matrix` (BMO_OP_SLOT_MAT) in-slot. The
+     *     layout is Blender's native column-major 4x4: the 16 floats are
+     *     read as `m[col][row]` (i.e. `m[i / 4][i % 4]`), so the three
+     *     translation components occupy indices 12, 13, 14. May be null,
+     *     in which case the identity matrix is used.
+     *   - `merge_dist` sets the `merge_dist` float in-slot: the maximum
+     *     distance from the mirror plane within which an original vert is
+     *     welded to its reflection. 0 disables welding.
+     *   - `axis` sets the `axis` int in-slot (0 = X, 1 = Y, 2 = Z); this is
+     *     the component negated in `matrix` space to perform the
+     *     reflection.
+     *   - `mirror_u`, `mirror_v`, `mirror_udim` set the matching bool
+     *     in-slots controlling UV mirroring of the reflected faces.
+     *
+     * After exec the `geom.out` element buffer (the mirrored, post-weld
+     * verts/edges/faces) is walked with a BMOIter restricted to
+     * BM_ALL_NOLOOP and written into `out_geom` up to `out_geom_cap`
+     * entries; its full count is the return value.
+     *
+     * Element pointers in `geom` must remain valid for the duration of the
+     * call. Returns the total `geom.out` count (which may exceed
+     * `out_geom_cap`), or -1 if BMO_op_initf rejected the input (in which
+     * case `out_geom` is not written). */
+    int bms_mirror(BMesh *bm,
+                   BMHeader **geom, int geom_len,
+                   const float *matrix,
+                   float merge_dist,
+                   int axis,
+                   bool mirror_u, bool mirror_v, bool mirror_udim,
+                   BMHeader **out_geom, int out_geom_cap);
+
     /* Invoke BMesh's `dissolve_limit` operator (a.k.a. "limited dissolve") on
      * the supplied edge + vert sets. Greedy heap-driven planar / co-linear
      * dissolve: every candidate whose dihedral angle stays within

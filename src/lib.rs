@@ -1105,6 +1105,46 @@ unsafe extern "C" {
         out_isovert_cap: c_int,
         out_isovert_count: *mut c_int,
     ) -> c_int;
+
+    /// Invoke BMesh's `mirror` operator on the `geom` set: duplicate it,
+    /// reflect the duplicate across the `axis` plane in `matrix` space,
+    /// flip the reflected faces' winding, and weld each reflected vert
+    /// back onto its original when the original lies within `merge_dist`
+    /// of the mirror plane.
+    ///
+    /// `geom` (length `geom_len`) is a mixed vert/edge/face header buffer
+    /// fed to the operator's `geom` in-slot; it may be null with `geom_len`
+    /// `0`. Element pointers must remain valid for the duration of the call.
+    ///
+    /// `matrix` points to 16 `f32` in Blender's native column-major 4x4
+    /// layout (read as `m[i / 4][i % 4]`, so translation occupies indices
+    /// 12, 13, 14). It may be null, in which case the identity matrix is
+    /// used. `merge_dist` is the maximum distance from the mirror plane
+    /// for welding (0 disables welding). `axis` selects the negated
+    /// component: 0 = X, 1 = Y, 2 = Z. `mirror_u` / `mirror_v` /
+    /// `mirror_udim` control UV mirroring of the reflected faces.
+    ///
+    /// `out_geom` receives the `geom.out` mirrored elements (verts, edges,
+    /// faces) and must hold at least `out_geom_cap` `*mut BMHeader`; the
+    /// buffer is filled up to its cap and the true count returned, so a
+    /// count greater than `out_geom_cap` signals truncation. `out_geom`
+    /// may be null with `out_geom_cap` `0` to skip read-back.
+    ///
+    /// Returns the total `geom.out` count, or -1 if the operator rejected
+    /// the input (in which case `out_geom` is not written).
+    pub fn bms_mirror(
+        bm: *mut BMesh,
+        geom: *mut *mut BMHeader,
+        geom_len: c_int,
+        matrix: *const f32,
+        merge_dist: f32,
+        axis: c_int,
+        mirror_u: bool,
+        mirror_v: bool,
+        mirror_udim: bool,
+        out_geom: *mut *mut BMHeader,
+        out_geom_cap: c_int,
+    ) -> c_int;
 }
 
 // ---- Delimit bits for `bms_dissolve_limit` ----

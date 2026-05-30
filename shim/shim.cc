@@ -2425,4 +2425,78 @@ extern "C"
         return geom_count;
     }
 
+    /* Invoke BMesh's `mirror` operator: duplicate `geom`, reflect the copy
+     * across the `axis` plane in `matrix` space, flip the reflected
+     * winding, and weld reflected verts onto their originals within
+     * `merge_dist`. See shim.h for the slot mapping, the column-major
+     * matrix layout, and the read-back convention. */
+    int bms_mirror(BMesh *bm,
+                   BMHeader **geom, int geom_len,
+                   const float *matrix,
+                   float merge_dist,
+                   int axis,
+                   bool mirror_u, bool mirror_v, bool mirror_udim,
+                   BMHeader **out_geom, int out_geom_cap)
+    {
+        using namespace blender;
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "mirror geom=%eb merge_dist=%f axis=%i "
+                          "mirror_u=%b mirror_v=%b mirror_udim=%b",
+                          geom,
+                          geom_len,
+                          merge_dist,
+                          axis,
+                          mirror_u,
+                          mirror_v,
+                          mirror_udim))
+        {
+            return -1;
+        }
+
+        /* The `matrix` (BMO_OP_SLOT_MAT) slot is the transform space the
+         * reflection is applied in. Set it explicitly so the 16-float
+         * column-major buffer is forwarded verbatim; fall back to identity
+         * when the caller passes null. */
+        float mat[4][4];
+        if (matrix)
+        {
+            for (int i = 0; i < 16; i++)
+            {
+                mat[i / 4][i % 4] = matrix[i];
+            }
+        }
+        else
+        {
+            for (int i = 0; i < 16; i++)
+            {
+                mat[i / 4][i % 4] = (i / 4 == i % 4) ? 1.0f : 0.0f;
+            }
+        }
+        BMO_slot_mat_set(&op, op.slots_in, "matrix", &mat[0][0], 4);
+
+        BMO_op_exec(bm, &op);
+
+        /* Walk the `geom.out` element buffer (mirrored, post-weld geometry). */
+        int geom_count = 0;
+        {
+            BMOIter oiter;
+            BMHeader *ele = static_cast<BMHeader *>(
+                BMO_iter_new(&oiter, op.slots_out, "geom.out", BM_ALL_NOLOOP));
+            for (; ele; ele = static_cast<BMHeader *>(BMO_iter_step(&oiter)))
+            {
+                if (geom_count < out_geom_cap)
+                {
+                    out_geom[geom_count] = ele;
+                }
+                geom_count++;
+            }
+        }
+
+        BMO_op_finish(bm, &op);
+        return geom_count;
+    }
+
 } /* extern "C" */
