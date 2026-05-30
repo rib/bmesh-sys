@@ -1825,6 +1825,45 @@ extern "C"
         return true;
     }
 
+    bool bms_subdivide_edges(BMesh *bm,
+                             BMEdge **edges, int edges_len,
+                             int cuts,
+                             float smooth,
+                             float fractal,
+                             float along_normal,
+                             int seed,
+                             int quad_corner_type,
+                             bool use_grid_fill,
+                             bool use_single_edge,
+                             bool use_only_quads)
+    {
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "subdivide_edges edges=%eb cuts=%i "
+                          "smooth=%f fractal=%f along_normal=%f seed=%i "
+                          "quad_corner_type=%i use_grid_fill=%b "
+                          "use_single_edge=%b use_only_quads=%b",
+                          reinterpret_cast<BMHeader **>(edges),
+                          edges_len,
+                          cuts,
+                          double(smooth),
+                          double(fractal),
+                          double(along_normal),
+                          seed,
+                          quad_corner_type,
+                          use_grid_fill,
+                          use_single_edge,
+                          use_only_quads))
+        {
+            return false;
+        }
+        BMO_op_exec(bm, &op);
+        BMO_op_finish(bm, &op);
+        return true;
+    }
+
     /* ---- Collapse (BMesh operator: collapse) ---- */
 
     bool bms_collapse(BMesh *bm,

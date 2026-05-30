@@ -621,6 +621,55 @@ extern "C"
                                  BMEdge **edges, int edges_len,
                                  float dist);
 
+    /* Invoke BMesh's `subdivide_edges` operator on the supplied edge set.
+     * Each input edge is split into `cuts + 1` segments and the faces
+     * touching the cut edges are re-filled according to the chosen pattern.
+     *
+     * Parameters map 1:1 onto the operator's slots:
+     *
+     *   - `edges`            — the edges to subdivide. The buffer may be null
+     *                          only when `edges_len == 0`, a no-op.
+     *   - `cuts`             — number of cut points per edge (segments minus
+     *                          one). `cuts == 1` is a single midpoint cut.
+     *   - `smooth`           — Catmull-Clark-style smoothing factor applied to
+     *                          new vertices; `0.0` keeps them on the originals.
+     *   - `fractal`          — random displacement magnitude for new vertices;
+     *                          `0.0` disables fractal jitter.
+     *   - `along_normal`     — factor (0..1) restricting fractal displacement
+     *                          toward the surface normal.
+     *   - `seed`             — seed for the fractal random number generator.
+     *   - `quad_corner_type` — fill pattern for quads cut on one corner; one of
+     *                          the BMS_SUBD_CORNER_* values below.
+     *   - `use_grid_fill`    — fill fully-selected faces with a regular grid.
+     *   - `use_single_edge`  — tessellate the single-edge case in a quad/tri.
+     *   - `use_only_quads`   — only subdivide quads (loop-cut behaviour).
+     *
+     * Corner-type values (matching BMesh's quad innervert enum):
+     *   BMS_SUBD_CORNER_INNERVERT    = 0
+     *   BMS_SUBD_CORNER_PATH         = 1
+     *   BMS_SUBD_CORNER_FAN          = 2
+     *   BMS_SUBD_CORNER_STRAIGHT_CUT = 3
+     *
+     * Returns true on success, false if BMO_op_initf rejected the input. */
+    enum BMS_SubdCornerType
+    {
+        BMS_SUBD_CORNER_INNERVERT = 0,
+        BMS_SUBD_CORNER_PATH = 1,
+        BMS_SUBD_CORNER_FAN = 2,
+        BMS_SUBD_CORNER_STRAIGHT_CUT = 3,
+    };
+    bool bms_subdivide_edges(BMesh *bm,
+                             BMEdge **edges, int edges_len,
+                             int cuts,
+                             float smooth,
+                             float fractal,
+                             float along_normal,
+                             int seed,
+                             int quad_corner_type,
+                             bool use_grid_fill,
+                             bool use_single_edge,
+                             bool use_only_quads);
+
     /* Invoke BMesh's `collapse` operator on the supplied edge set. Collapses
      * each connected group of input edges to a single vertex, welding their
      * endpoints together and removing the now-degenerate geometry.

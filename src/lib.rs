@@ -744,6 +744,41 @@ unsafe extern "C" {
         dist: f32,
     ) -> bool;
 
+    /// Invoke BMesh's `subdivide_edges` BMOP on the supplied edge set. Each
+    /// input edge is split into `cuts + 1` segments and the faces touching
+    /// the cut edges are re-filled according to the chosen pattern. The mesh
+    /// is mutated in place; no output geometry is captured.
+    ///
+    /// - `edges` — the edges to subdivide. The pointer may be null only when
+    ///   `edges_len == 0`, in which case nothing is subdivided.
+    /// - `cuts` — number of cut points per edge; `1` is a single midpoint cut.
+    /// - `smooth` — smoothing factor for new vertices; `0.0` is no-op.
+    /// - `fractal` — random displacement magnitude; `0.0` is no-op.
+    /// - `along_normal` — factor (0..1) restricting fractal displacement
+    ///   toward the surface normal.
+    /// - `seed` — seed for the fractal random number generator.
+    /// - `quad_corner_type` — fill pattern for single-corner quad cuts; one of
+    ///   the `BMS_SUBD_CORNER_*` constants below.
+    /// - `use_grid_fill` — fill fully-selected faces with a regular grid.
+    /// - `use_single_edge` — tessellate the single-edge case in a quad/tri.
+    /// - `use_only_quads` — only subdivide quads (loop-cut behaviour).
+    ///
+    /// Returns false if the operator rejected the input.
+    pub fn bms_subdivide_edges(
+        bm: *mut BMesh,
+        edges: *mut *mut BMEdge,
+        edges_len: c_int,
+        cuts: c_int,
+        smooth: f32,
+        fractal: f32,
+        along_normal: f32,
+        seed: c_int,
+        quad_corner_type: c_int,
+        use_grid_fill: bool,
+        use_single_edge: bool,
+        use_only_quads: bool,
+    ) -> bool;
+
     /// Invoke BMesh's `collapse` BMOP on the supplied edge set. Collapses
     /// each connected group of input edges to a single vertex, welding their
     /// endpoints together and removing the now-degenerate geometry.
@@ -1039,6 +1074,15 @@ pub const BMS_DELIM_MATERIAL: c_int = 1 << 1;
 pub const BMS_DELIM_SEAM: c_int = 1 << 2;
 pub const BMS_DELIM_SHARP: c_int = 1 << 3;
 pub const BMS_DELIM_UV: c_int = 1 << 4;
+
+// ---- Quad corner types for `bms_subdivide_edges` ----
+//
+// Values matching BMesh's quad innervert enum, selecting the fill pattern
+// applied when a quad is cut on a single corner.
+pub const BMS_SUBD_CORNER_INNERVERT: c_int = 0;
+pub const BMS_SUBD_CORNER_PATH: c_int = 1;
+pub const BMS_SUBD_CORNER_FAN: c_int = 2;
+pub const BMS_SUBD_CORNER_STRAIGHT_CUT: c_int = 3;
 
 // ---- Counts ----
 
