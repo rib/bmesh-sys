@@ -1908,6 +1908,91 @@ extern "C"
         return n;
     }
 
+    /* Run the `poke` BMOP over a face set and capture both output slots.
+     *
+     * The shim's `center_mode` follows the same convention as the
+     * single-face poke shims (0 = MEAN, 1 = BOUNDS, 2 = MEAN_WEIGHTED);
+     * it is translated here into the operator's native eCenterMode
+     * (MEAN_WEIGHTED = 0, MEAN = 1, BOUNDS = 2) before being forwarded. */
+    int bms_poke_out(BMesh *bm,
+                     BMFace **faces, int faces_len,
+                     int center_mode, float offset, bool use_relative_offset,
+                     BMVert **out_verts, int out_verts_cap, int *r_verts_len,
+                     BMFace **out_faces, int out_faces_cap, int *r_faces_len)
+    {
+        /* MEAN_WEIGHTED = 0, MEAN = 1, BOUNDS = 2 in the operator's enum. */
+        int native_center_mode;
+        switch (center_mode)
+        {
+        case 1:
+            native_center_mode = 2; /* BOUNDS */
+            break;
+        case 2:
+            native_center_mode = 0; /* MEAN_WEIGHTED */
+            break;
+        default:
+            native_center_mode = 1; /* MEAN */
+            break;
+        }
+
+        /* The poke operator lifts the centre vertex along each input face's
+         * stored normal (f->no). That cached normal is only refreshed inside
+         * the operator's post-exec normals pass, so a freshly-built face whose
+         * normal was never computed would lift along a zero vector. Refresh the
+         * input faces' normals up front so a non-zero offset takes effect. We
+         * use per-face updates to avoid the loop-normal machinery that
+         * BM_mesh_normals_update would pull in. */
+        for (int i = 0; i < faces_len; ++i)
+        {
+            BM_face_normal_update(faces[i]);
+        }
+
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "poke faces=%eb offset=%f center_mode=%i "
+                          "use_relative_offset=%b",
+                          reinterpret_cast<BMHeader **>(faces),
+                          faces_len,
+                          double(offset),
+                          native_center_mode,
+                          use_relative_offset))
+        {
+            return -1;
+        }
+        BMO_op_exec(bm, &op);
+
+        BMOpSlot *verts_slot = BMO_slot_get(op.slots_out, "verts.out");
+        const int verts_n = verts_slot->len;
+        const int verts_copy = (verts_n < out_verts_cap) ? verts_n : out_verts_cap;
+        BMVert **verts_items = reinterpret_cast<BMVert **>(verts_slot->data.buf);
+        for (int i = 0; i < verts_copy; ++i)
+        {
+            out_verts[i] = verts_items[i];
+        }
+        if (r_verts_len)
+        {
+            *r_verts_len = verts_n;
+        }
+
+        BMOpSlot *faces_slot = BMO_slot_get(op.slots_out, "faces.out");
+        const int faces_n = faces_slot->len;
+        const int faces_copy = (faces_n < out_faces_cap) ? faces_n : out_faces_cap;
+        BMFace **faces_items = reinterpret_cast<BMFace **>(faces_slot->data.buf);
+        for (int i = 0; i < faces_copy; ++i)
+        {
+            out_faces[i] = faces_items[i];
+        }
+        if (r_faces_len)
+        {
+            *r_faces_len = faces_n;
+        }
+
+        BMO_op_finish(bm, &op);
+        return 0;
+    }
+
     bool bms_delete_geom(BMesh *bm,
                          BMHeader **geom, int geom_len,
                          int context)

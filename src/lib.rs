@@ -810,6 +810,48 @@ unsafe extern "C" {
         out_cap: c_int,
     ) -> c_int;
 
+    /// Invoke BMesh's `poke` BMOP on a face set and capture both of its
+    /// output slots.
+    ///
+    /// Each input face is split into a triangle fan around a freshly-created
+    /// centre vertex. `center_mode` follows the same convention as
+    /// [`bms_face_poke_mode`] (`0` = MEAN, `1` = BOUNDS, `2` = MEAN_WEIGHTED)
+    /// and is translated internally to the operator's native enum. `offset`
+    /// lifts each centre vertex along its source face normal; when
+    /// `use_relative_offset` is `true` the lift is scaled by the mean
+    /// corner-to-centre distance of each face.
+    ///
+    /// The operator's two output slots are copied into caller-allocated
+    /// buffers:
+    /// - `verts.out` -> `out_verts` (one centre vertex per input face).
+    /// - `out_verts` must point to `out_verts_cap` writable `*mut BMVert`.
+    /// - `faces.out` -> `out_faces` (the fan-triangle faces).
+    /// - `out_faces` must point to `out_faces_cap` writable `*mut BMFace`.
+    ///
+    /// For each slot the total length is written through the matching
+    /// `r_*_len` out-param (which may be null); up to `min(len, cap)` pointers
+    /// are written to the buffer. A reported length greater than its cap
+    /// signals truncation, so callers can re-run on a fresh fixture with a
+    /// larger buffer. Both slots are filled in the mesh's element-iteration
+    /// order over the newly-created elements, not grouped per input face.
+    /// Either buffer may be null only when its cap is zero (size-probing mode).
+    ///
+    /// Returns `0` on success, or `-1` if the operator rejected the input.
+    pub fn bms_poke_out(
+        bm: *mut BMesh,
+        faces: *mut *mut BMFace,
+        faces_len: c_int,
+        center_mode: c_int,
+        offset: f32,
+        use_relative_offset: bool,
+        out_verts: *mut *mut BMVert,
+        out_verts_cap: c_int,
+        r_verts_len: *mut c_int,
+        out_faces: *mut *mut BMFace,
+        out_faces_cap: c_int,
+        r_faces_len: *mut c_int,
+    ) -> c_int;
+
     /// Invoke BMesh's general-purpose `delete` BMOP on a mixed element
     /// buffer.
     ///

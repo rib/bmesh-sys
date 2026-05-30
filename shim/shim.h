@@ -617,6 +617,47 @@ extern "C"
                               bool check_degenerate,
                               BMEdge **out_buf, int out_cap);
 
+    /* Invoke BMesh's `poke` operator on the supplied face set, splitting each
+     * input face into a triangle fan around a freshly-created centre vertex,
+     * and capture both of the operator's output slots.
+     *
+     * Parameters map onto the operator's input slots:
+     *   - `faces` / `faces_len`   — the BMFace* set to poke. May be null with
+     *                               `faces_len == 0` (a no-op).
+     *   - `center_mode`           — centre formula, using the same convention
+     *                               as the single-face poke shims:
+     *                                 0 = MEAN          (uniform centroid)
+     *                                 1 = BOUNDS        (axis-aligned bbox)
+     *                                 2 = MEAN_WEIGHTED (edge-length weighted)
+     *                               Translated internally to the operator's
+     *                               native enum.
+     *   - `offset`                — lift of each centre vertex along its source
+     *                               face normal.
+     *   - `use_relative_offset`   — when true the lift is scaled by the mean
+     *                               corner-to-centre distance of each face.
+     *
+     * The two output slots are copied into caller-allocated buffers:
+     *   - `verts.out` -> `out_verts` (one centre vertex per input face).
+     *   - `faces.out` -> `out_faces` (the fan-triangle faces; n per input
+     *                                 face of n corners).
+     * Both slots are populated by filtering the mesh's element lists for the
+     * operator's new-element tool flag, so the order is the mesh's element
+     * iteration order over the newly-created elements, not a per-input-face
+     * grouping.
+     *
+     * For each slot, up to `min(slot_len, cap)` pointers are written to the
+     * buffer and the total `slot_len` is reported through the matching
+     * `r_*_len` out-param (which may be null). A returned length greater than
+     * its cap signals the buffer was undersized. Either buffer may be null
+     * only when its cap is zero (size-probing mode).
+     *
+     * Returns 0 on success, or -1 if BMO_op_initf rejected the input. */
+    int bms_poke_out(BMesh *bm,
+                     BMFace **faces, int faces_len,
+                     int center_mode, float offset, bool use_relative_offset,
+                     BMVert **out_verts, int out_verts_cap, int *r_verts_len,
+                     BMFace **out_faces, int out_faces_cap, int *r_faces_len);
+
     /* Read / write typed values at a layer offset on any BM element. */
     void bms_elem_get_float(void *elem, int offset, float *out);
     void bms_elem_set_float(void *elem, int offset, float value);
