@@ -976,6 +976,59 @@ unsafe extern "C" {
         verts_len: c_int,
         merge_co: *const f32,
     ) -> bool;
+
+    /// Maps to BMesh's `duplicate` BMOP - clones a selection into disjoint
+    /// coincident geometry within the same mesh.
+    ///
+    /// `geom` is a mixed array of `*mut BMHeader` (verts/edges/faces) of
+    /// length `geom_len`; it may be null only when `geom_len` is zero. `use_edge_flip_from_face` forwards the bool
+    /// in-slot of the same name. Element pointers must remain valid for the
+    /// duration of the call.
+    ///
+    /// Outputs are written into caller-allocated buffers. Each `*_cap` is the
+    /// number of entries (or couples, for the maps) the buffer can hold; any
+    /// buffer may be null with its cap `0` to skip reading that slot. Every
+    /// buffer is filled up to its cap and the true count is reported, so a
+    /// count greater than the cap signals truncation.
+    ///
+    /// - `out_geom` receives the `geom.out` clone elements (verts, edges,
+    ///   faces). It must hold at least `out_geom_cap` `*mut BMHeader`. The
+    ///   total count is the function's return value.
+    /// - The five `*_map` buffers receive their mapping slots as flat
+    ///   `(src, dst)` couples: `buf[2*i]` is the key, `buf[2*i+1]` the mapped
+    ///   value, so each must hold at least `2 * cap` pointers. The operator
+    ///   inserts each correspondence in both directions, so an N-element map
+    ///   yields `2 * N` couples. Per-slot couple counts are written through
+    ///   the `out_*_count` out-params (each may be null to ignore):
+    ///   `out_boundary_map`/`out_edge_map` are edge->edge,
+    ///   `out_isovert_map`/`out_vert_map` are vert->vert, `out_face_map` is
+    ///   face->face.
+    ///
+    /// Returns the total `geom.out` count, or -1 if the operator rejected the
+    /// input (in which case no out-params are written).
+    pub fn bms_duplicate(
+        bm: *mut BMesh,
+        geom: *mut *mut BMHeader,
+        geom_len: c_int,
+        use_edge_flip_from_face: bool,
+        out_geom: *mut *mut BMHeader,
+        out_geom_cap: c_int,
+        out_boundary_map: *mut *mut BMHeader,
+        out_boundary_cap: c_int,
+        out_boundary_count: *mut c_int,
+        out_isovert_map: *mut *mut BMVert,
+        out_isovert_cap: c_int,
+        out_isovert_count: *mut c_int,
+        out_vert_map: *mut *mut BMVert,
+        out_vert_cap: c_int,
+        out_vert_count: *mut c_int,
+        out_edge_map: *mut *mut BMEdge,
+        out_edge_cap: c_int,
+        out_edge_count: *mut c_int,
+        out_face_map: *mut *mut BMFace,
+        out_face_cap: c_int,
+        out_face_count: *mut c_int,
+    ) -> c_int;
 }
 
 // ---- Delimit bits for `bms_dissolve_limit` ----

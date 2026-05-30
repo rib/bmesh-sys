@@ -2196,4 +2196,118 @@ extern "C"
         return true;
     }
 
+    /*
+     * Maps to BMesh's `duplicate` BMOP: clone the input selection into
+     * disjoint, coincident new geometry within the same mesh.
+     *
+     * `geom` / `geom_len` are forwarded to the operator's `geom`
+     * element-buffer slot via the `%eb` specifier (a mixed BM_VERT |
+     * BM_EDGE | BM_FACE set); either may be null with a length of 0. The
+     * `dest` pointer slot is left unset, so the clones land in `bm`.
+     * `use_edge_flip_from_face` sets the matching bool input slot.
+     *
+     * After exec the output slots are read back into the caller's buffers:
+     *
+     *   - The `geom.out` element buffer is walked with a BMOIter restricted
+     *     to BM_ALL_NOLOOP and written into `out_geom` up to `out_geom_cap`
+     *     entries; its full count is the return value.
+     *   - Each `*_map.out` MAP_ELEM slot is walked with a BMOIter and emitted
+     *     as flat (src, dst) couples (`buf[2*i]` key, `buf[2*i+1]` value), up
+     *     to the slot's `_cap` couples; the full couple count is stored
+     *     through the matching `_count` out-param when that pointer is
+     *     non-null.
+     *
+     * Returns the total `geom.out` count (which may exceed `out_geom_cap`),
+     * or -1 if BMO_op_initf rejected the input.
+     */
+    int bms_duplicate(BMesh *bm,
+                      BMHeader **geom, int geom_len,
+                      bool use_edge_flip_from_face,
+                      BMHeader **out_geom, int out_geom_cap,
+                      BMHeader **out_boundary_map, int out_boundary_cap,
+                      int *out_boundary_count,
+                      BMVert **out_isovert_map, int out_isovert_cap,
+                      int *out_isovert_count,
+                      BMVert **out_vert_map, int out_vert_cap,
+                      int *out_vert_count,
+                      BMEdge **out_edge_map, int out_edge_cap,
+                      int *out_edge_count,
+                      BMFace **out_face_map, int out_face_cap,
+                      int *out_face_count)
+    {
+        using namespace blender;
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "duplicate geom=%eb use_edge_flip_from_face=%b",
+                          geom,
+                          geom_len,
+                          use_edge_flip_from_face))
+        {
+            return -1;
+        }
+
+        BMO_op_exec(bm, &op);
+
+        /* Walk the `geom.out` element buffer (clone verts/edges/faces). */
+        int geom_count = 0;
+        {
+            BMOIter oiter;
+            BMHeader *ele = static_cast<BMHeader *>(
+                BMO_iter_new(&oiter, op.slots_out, "geom.out", BM_ALL_NOLOOP));
+            for (; ele; ele = static_cast<BMHeader *>(BMO_iter_step(&oiter)))
+            {
+                if (geom_count < out_geom_cap)
+                {
+                    out_geom[geom_count] = ele;
+                }
+                geom_count++;
+            }
+        }
+
+        /* Read a MAP_ELEM slot as flat (key, value) couples. The slot stores
+         * element pointers as both keys and values; `restrict_flag` selects
+         * the key element type the iterator yields. */
+        auto read_map = [&](const char *slot_name, int restrict_flag,
+                            void **out_buf, int cap, int *out_count) {
+            int count = 0;
+            BMOIter oiter;
+            void *key = BMO_iter_new(&oiter, op.slots_out, slot_name, restrict_flag);
+            for (; key; key = BMO_iter_step(&oiter))
+            {
+                void *val = BMO_iter_map_value_ptr(&oiter);
+                if (count < cap && out_buf)
+                {
+                    out_buf[2 * count] = key;
+                    out_buf[2 * count + 1] = val;
+                }
+                count++;
+            }
+            if (out_count)
+            {
+                *out_count = count;
+            }
+        };
+
+        read_map("boundary_map.out", BM_EDGE,
+                 reinterpret_cast<void **>(out_boundary_map),
+                 out_boundary_cap, out_boundary_count);
+        read_map("isovert_map.out", BM_VERT,
+                 reinterpret_cast<void **>(out_isovert_map),
+                 out_isovert_cap, out_isovert_count);
+        read_map("vert_map.out", BM_VERT,
+                 reinterpret_cast<void **>(out_vert_map),
+                 out_vert_cap, out_vert_count);
+        read_map("edge_map.out", BM_EDGE,
+                 reinterpret_cast<void **>(out_edge_map),
+                 out_edge_cap, out_edge_count);
+        read_map("face_map.out", BM_FACE,
+                 reinterpret_cast<void **>(out_face_map),
+                 out_face_cap, out_face_count);
+
+        BMO_op_finish(bm, &op);
+        return geom_count;
+    }
+
 } /* extern "C" */

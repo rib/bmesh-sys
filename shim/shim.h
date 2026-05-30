@@ -471,6 +471,69 @@ extern "C"
                         BMVert **verts, int verts_len,
                         const float merge_co[3]);
 
+    /* Maps to BMesh's `duplicate` BMOP - clones a selection into disjoint
+     * coincident geometry within the same mesh.
+     *
+     * Input:
+     *   - `geom` / `geom_len`  — mixed vert / edge / face selection
+     *                            forwarded to the operator's `geom` slot via
+     *                            the `%eb` element-buffer specifier
+     *                            (BM_VERT | BM_EDGE | BM_FACE). May be null
+     *                            with `geom_len == 0`. The destination mesh
+     *                            defaults to `bm` (the operator's `dest`
+     *                            slot is left unset).
+     *   - `use_edge_flip_from_face` — forwards the operator's bool in-slot of
+     *                            the same name, copying edge flip state from
+     *                            connected faces.
+     *
+     * Outputs are read back into caller-allocated buffers; each `_cap`
+     * argument is the number of writable slots in its buffer, and the
+     * corresponding count is returned (see below). Every buffer is written
+     * up to its cap, and the true count is reported so callers can detect
+     * truncation. Any output buffer may be null with its cap `0` to skip
+     * reading that slot.
+     *
+     *   - `out_geom` / `out_geom_cap` — the `geom.out` element buffer (the
+     *                            newly created clone elements, BM_ALL_NOLOOP:
+     *                            verts, edges, faces). The total count is the
+     *                            function's primary return value.
+     *   - the five `*_map.out` mapping slots are emitted as flat (src, dst)
+     *     couples: `buf[2*i]` is the map key, `buf[2*i+1]` the mapped value,
+     *     so each buffer needs `2 * cap` writable slots. NOTE: the operator
+     *     inserts each correspondence in both directions (source->dupe and
+     *     dupe->source), so a duplicated set of N elements yields 2*N couples
+     *     per element-type map. The per-slot couple counts are returned via
+     *     the `out_*_count` out-params (each may be null to ignore):
+     *       - `out_boundary_map` (edge->edge) — split-boundary edges that map
+     *         original edges to destination edges; count in `out_boundary_count`.
+     *       - `out_isovert_map`  (vert->vert) — isolated (wire/loose) verts;
+     *         count in `out_isovert_count`.
+     *       - `out_vert_map`     (vert->vert) — full vert correspondence;
+     *         count in `out_vert_count`.
+     *       - `out_edge_map`     (edge->edge) — full edge correspondence;
+     *         count in `out_edge_count`.
+     *       - `out_face_map`     (face->face) — full face correspondence;
+     *         count in `out_face_count`.
+     *
+     * Element pointers in `geom` must remain valid for the duration of the
+     * call. Returns the total `geom.out` count (which may exceed
+     * `out_geom_cap`), or -1 if BMO_op_initf rejected the input (in which
+     * case no out-params are written). */
+    int bms_duplicate(BMesh *bm,
+                      BMHeader **geom, int geom_len,
+                      bool use_edge_flip_from_face,
+                      BMHeader **out_geom, int out_geom_cap,
+                      BMHeader **out_boundary_map, int out_boundary_cap,
+                      int *out_boundary_count,
+                      BMVert **out_isovert_map, int out_isovert_cap,
+                      int *out_isovert_count,
+                      BMVert **out_vert_map, int out_vert_cap,
+                      int *out_vert_count,
+                      BMEdge **out_edge_map, int out_edge_cap,
+                      int *out_edge_count,
+                      BMFace **out_face_map, int out_face_cap,
+                      int *out_face_count);
+
     /* Invoke BMesh's `dissolve_limit` operator (a.k.a. "limited dissolve") on
      * the supplied edge + vert sets. Greedy heap-driven planar / co-linear
      * dissolve: every candidate whose dihedral angle stays within
