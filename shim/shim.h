@@ -646,6 +646,50 @@ extern "C"
                        bool use_shapekey,
                        BMHeader **out_geom, int out_geom_cap);
 
+    /* Invoke BMesh's `bisect_plane` operator: slice `geom` by an arbitrary
+     * plane, optionally snapping on-plane verts onto the plane and clearing
+     * the geometry on one or both sides.
+     *   - `geom` / `geom_len` fill the `geom` element-buffer in-slot (a mixed
+     *     BM_VERT | BM_EDGE | BM_FACE set).
+     *   - `plane_co` (3 floats) sets the `plane_co` vec in-slot: a point on
+     *     the cutting plane.
+     *   - `plane_no` (3 floats) sets the `plane_no` vec in-slot: the plane
+     *     normal. Its sign defines which side is "positive" (outer) and which
+     *     is "negative" (inner).
+     *   - `dist` sets the `dist` float in-slot: the tolerance within which a
+     *     vert is treated as exactly on the plane.
+     *   - `use_snap_center` sets the `use_snap_center` bool in-slot: snap
+     *     on-plane verts onto the plane.
+     *   - `clear_inner` sets the `clear_inner` bool in-slot: remove geometry
+     *     on the negative side of the plane.
+     *   - `clear_outer` sets the `clear_outer` bool in-slot: remove geometry
+     *     on the positive side of the plane.
+     *
+     * The operator exposes two output element buffers that are surfaced
+     * separately:
+     *   - `geom.out` (the full surviving geometry, walked with a BMOIter
+     *     restricted to BM_ALL_NOLOOP) is written into `out_geom` up to
+     *     `out_geom_cap` entries; its full count is the return value.
+     *   - `geom_cut.out` (the on-plane cut seam, restricted to
+     *     BM_VERT | BM_EDGE) is written into `out_cut` up to `out_cut_cap`
+     *     entries; its full count is written through `out_cut_len`.
+     *
+     * Either output buffer may be null with a cap of 0 to skip its read-back;
+     * `out_cut_len` may be null. Element pointers in `geom` must remain valid
+     * for the duration of the call. Returns the total `geom.out` count (which
+     * may exceed `out_geom_cap`), or -1 if BMO_op_initf rejected the input (in
+     * which case neither output buffer nor `out_cut_len` is written). */
+    int bms_bisect_plane(BMesh *bm,
+                         BMHeader **geom, int geom_len,
+                         const float *plane_co,
+                         const float *plane_no,
+                         float dist,
+                         bool use_snap_center,
+                         bool clear_inner,
+                         bool clear_outer,
+                         BMHeader **out_geom, int out_geom_cap,
+                         BMHeader **out_cut, int out_cut_cap, int *out_cut_len);
+
     /* Invoke BMesh's `dissolve_limit` operator (a.k.a. "limited dissolve") on
      * the supplied edge + vert sets. Greedy heap-driven planar / co-linear
      * dissolve: every candidate whose dihedral angle stays within

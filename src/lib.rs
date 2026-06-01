@@ -1179,6 +1179,54 @@ unsafe extern "C" {
         out_geom: *mut *mut BMHeader,
         out_geom_cap: c_int,
     ) -> c_int;
+
+    /// Invoke BMesh's `bisect_plane` operator: slice `geom` by an arbitrary
+    /// plane, optionally snapping on-plane verts onto the plane and clearing
+    /// the geometry on one or both sides.
+    ///
+    /// `geom` (length `geom_len`) is a mixed vert/edge/face header buffer fed
+    /// to the operator's `geom` in-slot; it may be null with `geom_len` `0`.
+    /// Element pointers must remain valid for the duration of the call.
+    ///
+    /// `plane_co` and `plane_no` each point to 3 floats: a point on the
+    /// cutting plane and the plane normal. The normal's sign defines which
+    /// side is "positive" (outer) and which is "negative" (inner). `dist` is
+    /// the tolerance within which a vert is treated as exactly on the plane.
+    /// `use_snap_center` snaps on-plane verts onto the plane; `clear_inner`
+    /// removes the negative side; `clear_outer` removes the positive side.
+    ///
+    /// Two output buffers are filled independently:
+    /// - `out_geom` receives the `geom.out` surviving elements (verts, edges,
+    ///   faces) and must hold at least `out_geom_cap` `*mut BMHeader`; the
+    ///   buffer is filled up to its cap and the true count returned, so a
+    ///   count greater than `out_geom_cap` signals truncation.
+    /// - `out_cut` receives the `geom_cut.out` on-plane seam elements (verts,
+    ///   edges) and must hold at least `out_cut_cap` `*mut BMHeader`; its true
+    ///   count is written through `out_cut_len`, which may exceed `out_cut_cap`
+    ///   to signal truncation.
+    ///
+    /// Either output buffer may be null with a cap of `0` to skip its
+    /// read-back, and `out_cut_len` may be null.
+    ///
+    /// Returns the total `geom.out` count, or -1 if the operator rejected the
+    /// input (in which case neither output buffer nor `out_cut_len` is
+    /// written).
+    pub fn bms_bisect_plane(
+        bm: *mut BMesh,
+        geom: *mut *mut BMHeader,
+        geom_len: c_int,
+        plane_co: *const f32,
+        plane_no: *const f32,
+        dist: f32,
+        use_snap_center: bool,
+        clear_inner: bool,
+        clear_outer: bool,
+        out_geom: *mut *mut BMHeader,
+        out_geom_cap: c_int,
+        out_cut: *mut *mut BMHeader,
+        out_cut_cap: c_int,
+        out_cut_len: *mut c_int,
+    ) -> c_int;
 }
 
 // ---- Delimit bits for `bms_dissolve_limit` ----

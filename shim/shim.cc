@@ -2549,4 +2549,81 @@ extern "C"
         return geom_count;
     }
 
+    /* Invoke BMesh's `bisect_plane` operator: slice `geom` by the plane
+     * through `plane_co` with normal `plane_no`, optionally snapping on-plane
+     * verts and clearing the inner / outer half. See shim.h for the slot
+     * mapping and the two-output read-back convention. */
+    int bms_bisect_plane(BMesh *bm,
+                         BMHeader **geom, int geom_len,
+                         const float *plane_co,
+                         const float *plane_no,
+                         float dist,
+                         bool use_snap_center,
+                         bool clear_inner,
+                         bool clear_outer,
+                         BMHeader **out_geom, int out_geom_cap,
+                         BMHeader **out_cut, int out_cut_cap, int *out_cut_len)
+    {
+        using namespace blender;
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "bisect_plane geom=%eb plane_co=%v plane_no=%v "
+                          "dist=%f use_snap_center=%b clear_inner=%b "
+                          "clear_outer=%b",
+                          geom,
+                          geom_len,
+                          const_cast<float *>(plane_co),
+                          const_cast<float *>(plane_no),
+                          dist,
+                          use_snap_center,
+                          clear_inner,
+                          clear_outer))
+        {
+            return -1;
+        }
+
+        BMO_op_exec(bm, &op);
+
+        /* Walk the `geom.out` element buffer (the full surviving geometry). */
+        int geom_count = 0;
+        {
+            BMOIter oiter;
+            BMHeader *ele = static_cast<BMHeader *>(
+                BMO_iter_new(&oiter, op.slots_out, "geom.out", BM_ALL_NOLOOP));
+            for (; ele; ele = static_cast<BMHeader *>(BMO_iter_step(&oiter)))
+            {
+                if (geom_count < out_geom_cap)
+                {
+                    out_geom[geom_count] = ele;
+                }
+                geom_count++;
+            }
+        }
+
+        /* Walk the `geom_cut.out` element buffer (the on-plane cut seam). */
+        int cut_count = 0;
+        {
+            BMOIter oiter;
+            BMHeader *ele = static_cast<BMHeader *>(BMO_iter_new(
+                &oiter, op.slots_out, "geom_cut.out", BM_VERT | BM_EDGE));
+            for (; ele; ele = static_cast<BMHeader *>(BMO_iter_step(&oiter)))
+            {
+                if (cut_count < out_cut_cap)
+                {
+                    out_cut[cut_count] = ele;
+                }
+                cut_count++;
+            }
+        }
+        if (out_cut_len)
+        {
+            *out_cut_len = cut_count;
+        }
+
+        BMO_op_finish(bm, &op);
+        return geom_count;
+    }
+
 } /* extern "C" */
