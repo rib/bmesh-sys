@@ -2499,4 +2499,54 @@ extern "C"
         return geom_count;
     }
 
+    /* Invoke BMesh's `symmetrize` operator: bisect `geom` along the plane
+     * selected by `direction`, keep the named half, mirror it across the
+     * plane, and weld at the seam within `dist`. See shim.h for the slot
+     * mapping, the direction enum values, and the read-back convention. */
+    int bms_symmetrize(BMesh *bm,
+                       BMHeader **geom, int geom_len,
+                       int direction,
+                       float dist,
+                       bool use_shapekey,
+                       BMHeader **out_geom, int out_geom_cap)
+    {
+        using namespace blender;
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "symmetrize input=%eb direction=%i dist=%f "
+                          "use_shapekey=%b",
+                          geom,
+                          geom_len,
+                          direction,
+                          dist,
+                          use_shapekey))
+        {
+            return -1;
+        }
+
+        BMO_op_exec(bm, &op);
+
+        /* Walk the `geom.out` element buffer (the symmetric, post-weld
+         * geometry). */
+        int geom_count = 0;
+        {
+            BMOIter oiter;
+            BMHeader *ele = static_cast<BMHeader *>(
+                BMO_iter_new(&oiter, op.slots_out, "geom.out", BM_ALL_NOLOOP));
+            for (; ele; ele = static_cast<BMHeader *>(BMO_iter_step(&oiter)))
+            {
+                if (geom_count < out_geom_cap)
+                {
+                    out_geom[geom_count] = ele;
+                }
+                geom_count++;
+            }
+        }
+
+        BMO_op_finish(bm, &op);
+        return geom_count;
+    }
+
 } /* extern "C" */

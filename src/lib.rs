@@ -1145,6 +1145,40 @@ unsafe extern "C" {
         out_geom: *mut *mut BMHeader,
         out_geom_cap: c_int,
     ) -> c_int;
+
+    /// Invoke BMesh's `symmetrize` operator: bisect `geom` along an
+    /// axis-aligned plane, clear the half selected by `direction`, then
+    /// mirror the surviving half across the plane and weld the duplicated
+    /// geometry at the seam within `dist`.
+    ///
+    /// `geom` (length `geom_len`) is a mixed vert/edge/face header buffer
+    /// fed to the operator's `input` in-slot; it may be null with `geom_len`
+    /// `0`. Element pointers must remain valid for the duration of the call.
+    ///
+    /// `direction` selects the signed-axis half that is kept and mirrored:
+    /// 0 = -X, 1 = -Y, 2 = -Z, 3 = +X, 4 = +Y, 5 = +Z. `dist` is the
+    /// on-plane merge tolerance used when welding the seam. `use_shapekey`
+    /// controls whether shape-key coordinates are transformed alongside the
+    /// base geometry.
+    ///
+    /// `out_geom` receives the `geom.out` symmetric elements (verts, edges,
+    /// faces) and must hold at least `out_geom_cap` `*mut BMHeader`; the
+    /// buffer is filled up to its cap and the true count returned, so a
+    /// count greater than `out_geom_cap` signals truncation. `out_geom`
+    /// may be null with `out_geom_cap` `0` to skip read-back.
+    ///
+    /// Returns the total `geom.out` count, or -1 if the operator rejected
+    /// the input (in which case `out_geom` is not written).
+    pub fn bms_symmetrize(
+        bm: *mut BMesh,
+        geom: *mut *mut BMHeader,
+        geom_len: c_int,
+        direction: c_int,
+        dist: f32,
+        use_shapekey: bool,
+        out_geom: *mut *mut BMHeader,
+        out_geom_cap: c_int,
+    ) -> c_int;
 }
 
 // ---- Delimit bits for `bms_dissolve_limit` ----

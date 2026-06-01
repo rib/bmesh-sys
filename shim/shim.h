@@ -616,6 +616,36 @@ extern "C"
                    bool mirror_u, bool mirror_v, bool mirror_udim,
                    BMHeader **out_geom, int out_geom_cap);
 
+    /* Invoke BMesh's `symmetrize` operator: bisect `geom` along an
+     * axis-aligned plane, clear the named half, then mirror the surviving
+     * half across the plane and weld the duplicated geometry onto the
+     * seam within `dist`.
+     *   - `geom` / `geom_len` fill the `input` element buffer in-slot.
+     *   - `direction` sets the `direction` int-enum in-slot selecting the
+     *     signed axis half that is kept and mirrored: 0 = -X, 1 = -Y,
+     *     2 = -Z, 3 = +X, 4 = +Y, 5 = +Z.
+     *   - `dist` sets the `dist` float in-slot, the on-plane merge
+     *     tolerance used when welding the seam.
+     *   - `use_shapekey` sets the `use_shapekey` bool in-slot, controlling
+     *     whether shape-key coordinates are transformed alongside the
+     *     base geometry.
+     *
+     * After exec the `geom.out` element buffer (the symmetric, post-weld
+     * verts/edges/faces) is walked with a BMOIter restricted to
+     * BM_ALL_NOLOOP and written into `out_geom` up to `out_geom_cap`
+     * entries; its full count is the return value.
+     *
+     * Element pointers in `geom` must remain valid for the duration of the
+     * call. Returns the total `geom.out` count (which may exceed
+     * `out_geom_cap`), or -1 if BMO_op_initf rejected the input (in which
+     * case `out_geom` is not written). */
+    int bms_symmetrize(BMesh *bm,
+                       BMHeader **geom, int geom_len,
+                       int direction,
+                       float dist,
+                       bool use_shapekey,
+                       BMHeader **out_geom, int out_geom_cap);
+
     /* Invoke BMesh's `dissolve_limit` operator (a.k.a. "limited dissolve") on
      * the supplied edge + vert sets. Greedy heap-driven planar / co-linear
      * dissolve: every candidate whose dihedral angle stays within
