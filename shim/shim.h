@@ -1055,6 +1055,49 @@ extern "C"
                                       BMFace **faces, int faces_len,
                                       BMEdge **out_buf, int out_cap);
 
+    /* Invoke BMesh's `connect_verts_nonplanar` operator on the supplied
+     * face set. Each input face whose corners deviate from a single plane
+     * by more than `angle_limit` (in radians) is split along newly inserted
+     * diagonal edges so that the resulting faces are flatter than the limit;
+     * sufficiently planar faces are left untouched. Exposes the operator's
+     * two BMOP input slots:
+     *
+     *   - `faces`       — the candidate faces to flatten.
+     *   - `angle_limit` — maximum non-planarity (radians) tolerated before
+     *                     a face is split.
+     *
+     * This operator carries the normals-calc op-type flag and reads face
+     * normals; callers should ensure mesh normals are up to date (e.g. via
+     * a normals update) before invoking.
+     *
+     * Returns true on success, false if BMO_op_initf rejected the input. */
+    bool bms_connect_verts_nonplanar(BMesh *bm,
+                                     BMFace **faces, int faces_len,
+                                     float angle_limit);
+
+    /* Capturing variant of `bms_connect_verts_nonplanar`.
+     *
+     * Runs the same `connect_verts_nonplanar` BMOP but, in addition to
+     * performing the splits, copies the operator's `edges.out` slot (the
+     * newly inserted diagonal edges) into the caller-supplied buffer
+     * `out_buf` of capacity `out_cap` edge slots.
+     *
+     * Return value:
+     *   -1  on operator init failure (matches the `false` return of the
+     *       non-capturing variant).
+     *   >= 0 on success: the *total* number of edges the slot produced. Up
+     *       to `min(total, out_cap)` pointers are written to `out_buf` (in
+     *       the slot's emit order). If the returned count exceeds `out_cap`,
+     *       the buffer was undersized.
+     *
+     * `out_buf` may be null only when `out_cap` is zero; in that case the
+     * function still runs the operator and returns the created-edge count
+     * for sizing purposes. */
+    int bms_connect_verts_nonplanar_out(BMesh *bm,
+                                        BMFace **faces, int faces_len,
+                                        float angle_limit,
+                                        BMEdge **out_buf, int out_cap);
+
     /* Invoke BMesh's `rotate_edges` operator on the supplied edge set. Each
      * eligible edge — one shared by exactly two faces whose union forms a
      * quad — is rotated (spun) to its other diagonal; ineligible edges are

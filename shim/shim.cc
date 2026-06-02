@@ -2156,6 +2156,59 @@ extern "C"
         return n;
     }
 
+    /* ---- Connect verts nonplanar (BMesh operator: connect_verts_nonplanar) ---- */
+
+    bool bms_connect_verts_nonplanar(BMesh *bm,
+                                     BMFace **faces, int faces_len,
+                                     float angle_limit)
+    {
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "connect_verts_nonplanar faces=%eb angle_limit=%f",
+                          reinterpret_cast<BMHeader **>(faces),
+                          faces_len,
+                          angle_limit))
+        {
+            return false;
+        }
+        BMO_op_exec(bm, &op);
+        BMO_op_finish(bm, &op);
+        return true;
+    }
+
+    int bms_connect_verts_nonplanar_out(BMesh *bm,
+                                        BMFace **faces, int faces_len,
+                                        float angle_limit,
+                                        BMEdge **out_buf, int out_cap)
+    {
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "connect_verts_nonplanar faces=%eb angle_limit=%f",
+                          reinterpret_cast<BMHeader **>(faces),
+                          faces_len,
+                          angle_limit))
+        {
+            return -1;
+        }
+        BMO_op_exec(bm, &op);
+
+        BMOpSlot *slot = BMO_slot_get(op.slots_out, "edges.out");
+        const int n = slot->len;
+        const int n_copy = (n < out_cap) ? n : out_cap;
+        BMEdge **slot_items = reinterpret_cast<BMEdge **>(slot->data.buf);
+        for (int i = 0; i < n_copy; ++i)
+        {
+            out_buf[i] = slot_items[i];
+        }
+
+        BMO_op_finish(bm, &op);
+        return n;
+    }
+
     /* ---- Rotate edges (BMesh operator: rotate_edges) ---- */
 
     bool bms_rotate_edges(BMesh *bm,

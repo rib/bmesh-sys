@@ -1001,6 +1001,51 @@ unsafe extern "C" {
         out_cap: c_int,
     ) -> c_int;
 
+    /// Invoke BMesh's `connect_verts_nonplanar` BMOP on the supplied face
+    /// set. Each input face whose corners deviate from a single plane by
+    /// more than `angle_limit` (radians) is split along newly inserted
+    /// diagonal edges until its pieces are flatter than the limit;
+    /// sufficiently planar faces are left untouched. The two input slots
+    /// are forwarded:
+    ///
+    /// - `faces` — the candidate faces to flatten.
+    /// - `angle_limit` — maximum non-planarity (radians) before a split.
+    ///
+    /// This operator reads face normals; ensure mesh normals are current
+    /// before calling. Element pointers must remain valid for the duration
+    /// of the call. Returns false if the operator rejected the input.
+    pub fn bms_connect_verts_nonplanar(
+        bm: *mut BMesh,
+        faces: *mut *mut BMFace,
+        faces_len: c_int,
+        angle_limit: f32,
+    ) -> bool;
+
+    /// Capturing variant of [`bms_connect_verts_nonplanar`].
+    ///
+    /// Runs the same `connect_verts_nonplanar` BMOP and additionally copies
+    /// the operator's `edges.out` slot — the newly inserted diagonal edges —
+    /// into the caller-supplied buffer `out_buf` of capacity `out_cap`
+    /// slots.
+    ///
+    /// Return value:
+    /// - `-1` on operator init failure (mirrors the `false` return of the
+    ///   non-capturing variant).
+    /// - `>= 0` on success: the *total* created-edge count produced by the
+    ///   operator. Up to `min(total, out_cap)` pointers are written to
+    ///   `out_buf` in the slot's emit order; if `total > out_cap` the buffer
+    ///   was undersized.
+    ///
+    /// `out_buf` may be null only when `out_cap` is zero (size-probing mode).
+    pub fn bms_connect_verts_nonplanar_out(
+        bm: *mut BMesh,
+        faces: *mut *mut BMFace,
+        faces_len: c_int,
+        angle_limit: f32,
+        out_buf: *mut *mut BMEdge,
+        out_cap: c_int,
+    ) -> c_int;
+
     /// Invoke BMesh's `rotate_edges` BMOP on the supplied edge set. Each
     /// eligible edge — one shared by exactly two faces whose union forms a
     /// quad — is rotated (spun) to its other diagonal; ineligible edges are
