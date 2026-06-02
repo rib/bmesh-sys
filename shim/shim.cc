@@ -764,10 +764,23 @@ extern "C"
         {
             BM_face_normal_update(f);
         }
-        /* Skip vertex normals on the bmesh side — the canonical comparison
-         * only checks face normals; bmesh's BM_vert_normal_update would
-         * require additional link-time symbols (BLI_task_*) for the parallel
-         * driver. */
+        /* Vertex normals are computed separately via
+         * bms_mesh_vert_normals_update; the whole-mesh BM_mesh_normals_update
+         * is avoided because its parallel driver pulls in BLI_task_* symbols. */
+    }
+
+    /* Recompute and store every vertex normal (v->no) for the whole mesh.
+     * Each vertex normal is built serially from its incident faces (whose
+     * normals are refreshed in the same pass), so no task-scheduler symbols
+     * are required. */
+    void bms_mesh_vert_normals_update(BMesh *bm)
+    {
+        BMVert *v;
+        BMIter iter;
+        BM_ITER_MESH(v, &iter, bm, BM_VERTS_OF_MESH)
+        {
+            BM_vert_normal_update_all(v);
+        }
     }
 
     /* ---- Customdata layer access ---- */
@@ -1946,6 +1959,8 @@ extern "C"
                              BMEdge **edges, int edges_len,
                              int cuts,
                              float smooth,
+                             int smooth_falloff,
+                             bool use_smooth_even,
                              float fractal,
                              float along_normal,
                              int seed,
@@ -1959,13 +1974,16 @@ extern "C"
                           &op,
                           BMO_FLAG_DEFAULTS,
                           "subdivide_edges edges=%eb cuts=%i "
-                          "smooth=%f fractal=%f along_normal=%f seed=%i "
+                          "smooth=%f smooth_falloff=%i use_smooth_even=%b "
+                          "fractal=%f along_normal=%f seed=%i "
                           "quad_corner_type=%i use_grid_fill=%b "
                           "use_single_edge=%b use_only_quads=%b",
                           reinterpret_cast<BMHeader **>(edges),
                           edges_len,
                           cuts,
                           double(smooth),
+                          smooth_falloff,
+                          use_smooth_even,
                           double(fractal),
                           double(along_normal),
                           seed,

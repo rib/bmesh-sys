@@ -94,6 +94,13 @@ extern "C"
      * is not modified. */
     void bms_mesh_calc_tessellation(BMesh *bm, BMLoop *(*out_tris)[3]);
 
+    /* Recompute every vertex's stored normal (v->no) across the whole mesh.
+     * Each vertex normal is accumulated serially from its incident faces, so
+     * no task-scheduler symbols are pulled in. The incident face normals are
+     * refreshed in the same pass, so the result is correct even if face
+     * normals were stale on entry. */
+    void bms_mesh_vert_normals_update(BMesh *bm);
+
     /* Destructively triangulate a single face in place. Wraps BMesh's
      * `BM_face_triangulate` along with the temporary MemArena (and, for
      * `MOD_TRIANGULATE_NGON_BEAUTY`, the BLI Heap) that it requires.
@@ -879,6 +886,10 @@ extern "C"
      *                          one). `cuts == 1` is a single midpoint cut.
      *   - `smooth`           — Catmull-Clark-style smoothing factor applied to
      *                          new vertices; `0.0` keeps them on the originals.
+     *   - `smooth_falloff`    — curve applied to the smoothing offset; one of
+     *                          the BMS_SUBD_FALLOFF_* values below.
+     *   - `use_smooth_even`   — keep the smoothing offset even by scaling it by
+     *                          the inverse of the vertex's edge-angle factor.
      *   - `fractal`          — random displacement magnitude for new vertices;
      *                          `0.0` disables fractal jitter.
      *   - `along_normal`     — factor (0..1) restricting fractal displacement
@@ -896,6 +907,14 @@ extern "C"
      *   BMS_SUBD_CORNER_FAN          = 2
      *   BMS_SUBD_CORNER_STRAIGHT_CUT = 3
      *
+     * Smooth-falloff values (matching BMesh's subdivide falloff enum):
+     *   BMS_SUBD_FALLOFF_SMOOTH        = 0
+     *   BMS_SUBD_FALLOFF_SPHERE        = 1
+     *   BMS_SUBD_FALLOFF_ROOT          = 2
+     *   BMS_SUBD_FALLOFF_SHARP         = 3
+     *   BMS_SUBD_FALLOFF_LIN           = 4
+     *   BMS_SUBD_FALLOFF_INVSQUARE     = 7
+     *
      * Returns true on success, false if BMO_op_initf rejected the input. */
     enum BMS_SubdCornerType
     {
@@ -904,10 +923,21 @@ extern "C"
         BMS_SUBD_CORNER_FAN = 2,
         BMS_SUBD_CORNER_STRAIGHT_CUT = 3,
     };
+    enum BMS_SubdFalloff
+    {
+        BMS_SUBD_FALLOFF_SMOOTH = 0,
+        BMS_SUBD_FALLOFF_SPHERE = 1,
+        BMS_SUBD_FALLOFF_ROOT = 2,
+        BMS_SUBD_FALLOFF_SHARP = 3,
+        BMS_SUBD_FALLOFF_LIN = 4,
+        BMS_SUBD_FALLOFF_INVSQUARE = 7,
+    };
     bool bms_subdivide_edges(BMesh *bm,
                              BMEdge **edges, int edges_len,
                              int cuts,
                              float smooth,
+                             int smooth_falloff,
+                             bool use_smooth_even,
                              float fractal,
                              float along_normal,
                              int seed,

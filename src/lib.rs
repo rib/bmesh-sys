@@ -843,6 +843,9 @@ unsafe extern "C" {
     ///   `edges_len == 0`, in which case nothing is subdivided.
     /// - `cuts` — number of cut points per edge; `1` is a single midpoint cut.
     /// - `smooth` — smoothing factor for new vertices; `0.0` is no-op.
+    /// - `smooth_falloff` — curve shaping the smoothing offset; one of the
+    ///   `BMS_SUBD_FALLOFF_*` constants below.
+    /// - `use_smooth_even` — keep the smoothing offset even across the mesh.
     /// - `fractal` — random displacement magnitude; `0.0` is no-op.
     /// - `along_normal` — factor (0..1) restricting fractal displacement
     ///   toward the surface normal.
@@ -860,6 +863,8 @@ unsafe extern "C" {
         edges_len: c_int,
         cuts: c_int,
         smooth: f32,
+        smooth_falloff: c_int,
+        use_smooth_even: bool,
         fractal: f32,
         along_normal: f32,
         seed: c_int,
@@ -1491,6 +1496,18 @@ pub const BMS_SUBD_CORNER_PATH: c_int = 1;
 pub const BMS_SUBD_CORNER_FAN: c_int = 2;
 pub const BMS_SUBD_CORNER_STRAIGHT_CUT: c_int = 3;
 
+// ---- Smooth-falloff curves for `bms_subdivide_edges` ----
+//
+// Values matching BMesh's subdivide falloff enum, shaping the curve applied
+// to the smoothing offset of newly created vertices. Note the gap at 5/6:
+// the enum reserves 7 for the inverse-square curve.
+pub const BMS_SUBD_FALLOFF_SMOOTH: c_int = 0;
+pub const BMS_SUBD_FALLOFF_SPHERE: c_int = 1;
+pub const BMS_SUBD_FALLOFF_ROOT: c_int = 2;
+pub const BMS_SUBD_FALLOFF_SHARP: c_int = 3;
+pub const BMS_SUBD_FALLOFF_LIN: c_int = 4;
+pub const BMS_SUBD_FALLOFF_INVSQUARE: c_int = 7;
+
 // ---- Counts ----
 
 unsafe extern "C" {
@@ -1605,10 +1622,18 @@ unsafe extern "C" {
     ) -> bool;
 
     /// Walks all faces and calls `BM_face_normal_update` on each. Does NOT
-    /// recompute vertex normals (bmesh's full mesh-normals-update pulls in
-    /// task-parallel machinery we don't stub); the comparison harness only
-    /// inspects face normals.
+    /// recompute vertex normals (BMesh's full mesh-normals-update pulls in
+    /// task-parallel machinery that is not linked here); use
+    /// [`bms_mesh_vert_normals_update`] when vertex normals are needed.
     pub fn bms_mesh_normals_update(bm: *mut BMesh);
+
+    /// Recomputes every vertex's stored normal across the whole mesh, writing
+    /// each into the vertex's `no` field. Vertex normals are accumulated
+    /// serially from incident faces (whose normals are refreshed in the same
+    /// pass), so this does not require any task-scheduler symbols and is
+    /// correct even when face normals were stale on entry. `bm` must be a
+    /// valid, non-null mesh pointer.
+    pub fn bms_mesh_vert_normals_update(bm: *mut BMesh);
 }
 
 // ---- Customdata layer access ----
