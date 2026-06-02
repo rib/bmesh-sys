@@ -845,6 +845,59 @@ unsafe extern "C" {
         out_cap: c_int,
     ) -> c_int;
 
+    /// Invoke BMesh's `connect_vert_pair` BMOP on a pair of verts. The
+    /// operator connects the two input verts along the shortest path that
+    /// stays within the surrounding faces: each edge the path crosses is
+    /// split to introduce an intermediate vert, then the `connect_verts`
+    /// sub-op inserts the connecting edges and splits the traversed faces.
+    /// All three input slots are forwarded explicitly:
+    ///
+    /// - `verts` — the pair to connect; `verts_len` must be exactly 2.
+    /// - `verts_exclude` — verts the path must avoid; may be null with a
+    ///   zero length.
+    /// - `faces_exclude` — faces the path must not cross; may be null with a
+    ///   zero length.
+    ///
+    /// Element pointers must remain valid for the duration of the call.
+    /// Returns false if the operator rejected the input.
+    pub fn bms_connect_vert_pair(
+        bm: *mut BMesh,
+        verts: *mut *mut BMVert,
+        verts_len: c_int,
+        verts_exclude: *mut *mut BMVert,
+        verts_exclude_len: c_int,
+        faces_exclude: *mut *mut BMFace,
+        faces_exclude_len: c_int,
+    ) -> bool;
+
+    /// Capturing variant of [`bms_connect_vert_pair`].
+    ///
+    /// Runs the same `connect_vert_pair` BMOP and additionally copies the
+    /// operator's `edges.out` slot — the edges created along the connecting
+    /// path — into the caller-supplied buffer `out_buf` of capacity
+    /// `out_cap` slots.
+    ///
+    /// Return value:
+    /// - `-1` on operator init failure (mirrors the `false` return of the
+    ///   non-capturing variant).
+    /// - `>= 0` on success: the *total* created-edge count produced by the
+    ///   operator. Up to `min(total, out_cap)` pointers are written to
+    ///   `out_buf` in the slot's emit order; if `total > out_cap` the buffer
+    ///   was undersized.
+    ///
+    /// `out_buf` may be null only when `out_cap` is zero (size-probing mode).
+    pub fn bms_connect_vert_pair_out(
+        bm: *mut BMesh,
+        verts: *mut *mut BMVert,
+        verts_len: c_int,
+        verts_exclude: *mut *mut BMVert,
+        verts_exclude_len: c_int,
+        faces_exclude: *mut *mut BMFace,
+        faces_exclude_len: c_int,
+        out_buf: *mut *mut BMEdge,
+        out_cap: c_int,
+    ) -> c_int;
+
     /// Invoke BMesh's `poke` BMOP on a face set and capture both of its
     /// output slots.
     ///

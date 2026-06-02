@@ -1947,6 +1947,69 @@ extern "C"
         return n;
     }
 
+    /* ---- Connect vert pair (BMesh operator: connect_vert_pair) ---- */
+
+    bool bms_connect_vert_pair(BMesh *bm,
+                               BMVert **verts, int verts_len,
+                               BMVert **verts_exclude, int verts_exclude_len,
+                               BMFace **faces_exclude, int faces_exclude_len)
+    {
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "connect_vert_pair verts=%eb verts_exclude=%eb "
+                          "faces_exclude=%eb",
+                          reinterpret_cast<BMHeader **>(verts),
+                          verts_len,
+                          reinterpret_cast<BMHeader **>(verts_exclude),
+                          verts_exclude_len,
+                          reinterpret_cast<BMHeader **>(faces_exclude),
+                          faces_exclude_len))
+        {
+            return false;
+        }
+        BMO_op_exec(bm, &op);
+        BMO_op_finish(bm, &op);
+        return true;
+    }
+
+    int bms_connect_vert_pair_out(BMesh *bm,
+                                  BMVert **verts, int verts_len,
+                                  BMVert **verts_exclude, int verts_exclude_len,
+                                  BMFace **faces_exclude, int faces_exclude_len,
+                                  BMEdge **out_buf, int out_cap)
+    {
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "connect_vert_pair verts=%eb verts_exclude=%eb "
+                          "faces_exclude=%eb",
+                          reinterpret_cast<BMHeader **>(verts),
+                          verts_len,
+                          reinterpret_cast<BMHeader **>(verts_exclude),
+                          verts_exclude_len,
+                          reinterpret_cast<BMHeader **>(faces_exclude),
+                          faces_exclude_len))
+        {
+            return -1;
+        }
+        BMO_op_exec(bm, &op);
+
+        BMOpSlot *slot = BMO_slot_get(op.slots_out, "edges.out");
+        const int n = slot->len;
+        const int n_copy = (n < out_cap) ? n : out_cap;
+        BMEdge **slot_items = reinterpret_cast<BMEdge **>(slot->data.buf);
+        for (int i = 0; i < n_copy; ++i)
+        {
+            out_buf[i] = slot_items[i];
+        }
+
+        BMO_op_finish(bm, &op);
+        return n;
+    }
+
     /* Run the `poke` BMOP over a face set and capture both output slots.
      *
      * The shim's `center_mode` follows the same convention as the

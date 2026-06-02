@@ -885,6 +885,50 @@ extern "C"
                               bool check_degenerate,
                               BMEdge **out_buf, int out_cap);
 
+    /* Invoke BMesh's `connect_vert_pair` operator. Given exactly two input
+     * verts, the operator connects them along the shortest path that stays
+     * within the surrounding faces: it splits each edge crossed by that path
+     * to introduce intermediate verts, then runs the `connect_verts` sub-op
+     * to insert the connecting edges and split the traversed faces. Exposes
+     * all three BMOP input slots explicitly:
+     *
+     *   - `verts`         — the pair of verts to connect; `verts_len` must be
+     *                       exactly 2.
+     *   - `verts_exclude` — verts the path must not route through. May be
+     *                       null with a zero length.
+     *   - `faces_exclude` — faces the path must not cross. May be null with a
+     *                       zero length.
+     *
+     * Returns true on success, false if BMO_op_initf rejected the input. */
+    bool bms_connect_vert_pair(BMesh *bm,
+                               BMVert **verts, int verts_len,
+                               BMVert **verts_exclude, int verts_exclude_len,
+                               BMFace **faces_exclude, int faces_exclude_len);
+
+    /* Capturing variant of `bms_connect_vert_pair`.
+     *
+     * Runs the same `connect_vert_pair` BMOP but, in addition to performing
+     * the connection, copies the operator's `edges.out` slot (the edges
+     * created along the connecting path) into the caller-supplied buffer
+     * `out_buf` of capacity `out_cap` edge slots.
+     *
+     * Return value:
+     *   -1  on operator init failure (matches the `false` return of the
+     *       non-capturing variant).
+     *   >= 0 on success: the *total* number of edges the slot produced. Up
+     *       to `min(total, out_cap)` pointers are written to `out_buf` (in
+     *       the slot's emit order). If the returned count exceeds `out_cap`,
+     *       the buffer was undersized.
+     *
+     * `out_buf` may be null only when `out_cap` is zero; in that case the
+     * function still runs the operator and returns the created-edge count
+     * for sizing purposes. */
+    int bms_connect_vert_pair_out(BMesh *bm,
+                                  BMVert **verts, int verts_len,
+                                  BMVert **verts_exclude, int verts_exclude_len,
+                                  BMFace **faces_exclude, int faces_exclude_len,
+                                  BMEdge **out_buf, int out_cap);
+
     /* Invoke BMesh's `poke` operator on the supplied face set, splitting each
      * input face into a triangle fan around a freshly-created centre vertex,
      * and capture both of the operator's output slots.
