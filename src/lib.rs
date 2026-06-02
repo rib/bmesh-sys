@@ -1479,6 +1479,85 @@ unsafe extern "C" {
         out_cut_cap: c_int,
         out_cut_len: *mut c_int,
     ) -> c_int;
+
+    /// Invoke BMesh's `bridge_loops` BMOP on the supplied edge set, building
+    /// geometry that spans two or more edge loops. The input slots are
+    /// forwarded directly: `use_pairs` bridges consecutive loop pairs (and
+    /// requires an even loop count), `use_cyclic` treats the loops as closed,
+    /// `use_merge` welds the loops instead of creating bridging faces (and
+    /// requires equal loop edge counts), `merge_factor` is the weld
+    /// interpolation factor, and `twist_offset` rotates closed-loop matching.
+    ///
+    /// The operator cancels — leaving the mesh unchanged — on three
+    /// validation failures: fewer than two loops, an odd loop count under
+    /// `use_pairs`, or unequal loop edge counts under `use_merge`.
+    ///
+    /// `edges` points to `edges_len` `*mut BMEdge`. Returns `true` on success,
+    /// `false` when the operator cancelled (a no-op) or its init was rejected.
+    pub fn bms_bridge_loops(
+        bm: *mut BMesh,
+        edges: *mut *mut BMEdge,
+        edges_len: c_int,
+        use_pairs: bool,
+        use_cyclic: bool,
+        use_merge: bool,
+        merge_factor: f32,
+        twist_offset: c_int,
+    ) -> bool;
+
+    /// Capturing variant of [`bms_bridge_loops`] for the `faces.out` slot.
+    ///
+    /// Runs the same `bridge_loops` BMOP and copies the operator's `faces.out`
+    /// slot — the faces created by the bridge — into the caller-supplied
+    /// buffer `faces_out` of capacity `faces_cap` slots.
+    ///
+    /// Return value:
+    /// - `-1` on operator init failure, or when the operator cancelled (one of
+    ///   the three validation failures), distinguishing the no-op from a
+    ///   zero-face success.
+    /// - `>= 0` on success: the *total* produced-face count. Up to
+    ///   `min(total, faces_cap)` pointers are written to `faces_out` in the
+    ///   slot's emit order; if `total > faces_cap` the buffer was undersized.
+    ///
+    /// `faces_out` may be null only when `faces_cap` is zero (size-probing).
+    pub fn bms_bridge_loops_out(
+        bm: *mut BMesh,
+        edges: *mut *mut BMEdge,
+        edges_len: c_int,
+        use_pairs: bool,
+        use_cyclic: bool,
+        use_merge: bool,
+        merge_factor: f32,
+        twist_offset: c_int,
+        faces_out: *mut *mut BMFace,
+        faces_cap: c_int,
+    ) -> c_int;
+
+    /// Capturing variant of [`bms_bridge_loops`] for the `edges.out` slot.
+    ///
+    /// Runs the same `bridge_loops` BMOP and copies the operator's `edges.out`
+    /// slot — the rung edges created across the bridge — into the
+    /// caller-supplied buffer `edges_out` of capacity `edges_cap` slots.
+    ///
+    /// Return value:
+    /// - `-1` on operator init failure, or when the operator cancelled.
+    /// - `>= 0` on success: the *total* produced-edge count. Up to
+    ///   `min(total, edges_cap)` pointers are written to `edges_out` in the
+    ///   slot's emit order; if `total > edges_cap` the buffer was undersized.
+    ///
+    /// `edges_out` may be null only when `edges_cap` is zero (size-probing).
+    pub fn bms_bridge_loops_edges_out(
+        bm: *mut BMesh,
+        edges: *mut *mut BMEdge,
+        edges_len: c_int,
+        use_pairs: bool,
+        use_cyclic: bool,
+        use_merge: bool,
+        merge_factor: f32,
+        twist_offset: c_int,
+        edges_out: *mut *mut BMEdge,
+        edges_cap: c_int,
+    ) -> c_int;
 }
 
 // ---- Delimit bits for `bms_dissolve_limit` ----

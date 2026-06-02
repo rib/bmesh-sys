@@ -1230,6 +1230,88 @@ extern "C"
      * register one). Read-only — never mutates the CustomData block. */
     int bms_layer_find_offset_named(BMesh *bm, int domain, int type, const char *name);
 
+    /* Invoke BMesh's `bridge_loops` operator on the supplied edge set.
+     * Builds geometry spanning two or more edge loops. The input slots map
+     * directly onto the operator's BMOP slots:
+     *
+     *   - `edges`        — the edge loops to bridge.
+     *   - `use_pairs`    — bridge consecutive loop pairs rather than chaining
+     *                      every loop into one strip; requires an even number
+     *                      of loops.
+     *   - `use_cyclic`   — treat the loops as closed (cyclic) rather than open.
+     *   - `use_merge`    — weld the loops together instead of creating new
+     *                      bridging faces; requires the loops to have equal
+     *                      edge counts.
+     *   - `merge_factor` — interpolation factor used when `use_merge` is set.
+     *   - `twist_offset` — rotational offset applied when matching closed
+     *                      loops.
+     *
+     * The operator raises a cancel on three validation failures: fewer than
+     * two loops, an odd loop count under `use_pairs`, and unequal loop edge
+     * counts under `use_merge`. In every cancel case the mesh is left
+     * unchanged.
+     *
+     * Returns true on success, false if the operator cancelled (a no-op) or
+     * if BMO_op_initf rejected the input. */
+    bool bms_bridge_loops(BMesh *bm,
+                          BMEdge **edges, int edges_len,
+                          bool use_pairs,
+                          bool use_cyclic,
+                          bool use_merge,
+                          float merge_factor,
+                          int twist_offset);
+
+    /* Capturing variant of `bms_bridge_loops` for the `faces.out` slot.
+     *
+     * Runs the same `bridge_loops` BMOP and copies the operator's `faces.out`
+     * slot (the faces created by the bridge) into the caller-supplied buffer
+     * `faces_out` of capacity `faces_cap` face slots.
+     *
+     * Return value:
+     *   -1  on operator init failure, or when the operator cancelled (one of
+     *       the three validation failures above) — distinguishing the no-op
+     *       case from a zero-face success.
+     *   >= 0 on success: the *total* number of faces the slot produced. Up to
+     *       `min(total, faces_cap)` pointers are written to `faces_out` (in
+     *       the slot's emit order). If the returned count exceeds `faces_cap`,
+     *       the buffer was undersized.
+     *
+     * `faces_out` may be null only when `faces_cap` is zero; in that case the
+     * function still runs the operator and returns the produced count for
+     * sizing purposes. */
+    int bms_bridge_loops_out(BMesh *bm,
+                             BMEdge **edges, int edges_len,
+                             bool use_pairs,
+                             bool use_cyclic,
+                             bool use_merge,
+                             float merge_factor,
+                             int twist_offset,
+                             BMFace **faces_out, int faces_cap);
+
+    /* Capturing variant of `bms_bridge_loops` for the `edges.out` slot.
+     *
+     * Runs the same `bridge_loops` BMOP and copies the operator's `edges.out`
+     * slot (the rung edges created across the bridge) into the caller-supplied
+     * buffer `edges_out` of capacity `edges_cap` edge slots.
+     *
+     * Return value:
+     *   -1  on operator init failure, or when the operator cancelled (one of
+     *       the three validation failures above).
+     *   >= 0 on success: the *total* number of edges the slot produced. Up to
+     *       `min(total, edges_cap)` pointers are written to `edges_out` (in
+     *       the slot's emit order). If the returned count exceeds `edges_cap`,
+     *       the buffer was undersized.
+     *
+     * `edges_out` may be null only when `edges_cap` is zero. */
+    int bms_bridge_loops_edges_out(BMesh *bm,
+                                   BMEdge **edges, int edges_len,
+                                   bool use_pairs,
+                                   bool use_cyclic,
+                                   bool use_merge,
+                                   float merge_factor,
+                                   int twist_offset,
+                                   BMEdge **edges_out, int edges_cap);
+
 #ifdef __cplusplus
 }
 #endif

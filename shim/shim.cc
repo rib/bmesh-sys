@@ -2951,4 +2951,133 @@ extern "C"
         return geom_count;
     }
 
+    /* ---- Bridge loops (BMesh operator: bridge_loops) ---- */
+
+    bool bms_bridge_loops(BMesh *bm,
+                          BMEdge **edges, int edges_len,
+                          bool use_pairs,
+                          bool use_cyclic,
+                          bool use_merge,
+                          float merge_factor,
+                          int twist_offset)
+    {
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "bridge_loops edges=%eb use_pairs=%b use_cyclic=%b "
+                          "use_merge=%b merge_factor=%f twist_offset=%i",
+                          reinterpret_cast<BMHeader **>(edges),
+                          edges_len,
+                          use_pairs,
+                          use_cyclic,
+                          use_merge,
+                          double(merge_factor),
+                          twist_offset))
+        {
+            return false;
+        }
+        BMO_op_exec(bm, &op);
+        const bool cancelled =
+            BMO_error_occurred_at_level(bm, BMO_ERROR_CANCEL);
+        if (cancelled)
+        {
+            BMO_error_clear(bm);
+        }
+        BMO_op_finish(bm, &op);
+        return !cancelled;
+    }
+
+    int bms_bridge_loops_out(BMesh *bm,
+                             BMEdge **edges, int edges_len,
+                             bool use_pairs,
+                             bool use_cyclic,
+                             bool use_merge,
+                             float merge_factor,
+                             int twist_offset,
+                             BMFace **faces_out, int faces_cap)
+    {
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "bridge_loops edges=%eb use_pairs=%b use_cyclic=%b "
+                          "use_merge=%b merge_factor=%f twist_offset=%i",
+                          reinterpret_cast<BMHeader **>(edges),
+                          edges_len,
+                          use_pairs,
+                          use_cyclic,
+                          use_merge,
+                          double(merge_factor),
+                          twist_offset))
+        {
+            return -1;
+        }
+        BMO_op_exec(bm, &op);
+        if (BMO_error_occurred_at_level(bm, BMO_ERROR_CANCEL))
+        {
+            BMO_error_clear(bm);
+            BMO_op_finish(bm, &op);
+            return -1;
+        }
+
+        BMOpSlot *slot = BMO_slot_get(op.slots_out, "faces.out");
+        const int n = slot->len;
+        const int n_copy = (n < faces_cap) ? n : faces_cap;
+        BMFace **slot_items = reinterpret_cast<BMFace **>(slot->data.buf);
+        for (int i = 0; i < n_copy; ++i)
+        {
+            faces_out[i] = slot_items[i];
+        }
+
+        BMO_op_finish(bm, &op);
+        return n;
+    }
+
+    int bms_bridge_loops_edges_out(BMesh *bm,
+                                   BMEdge **edges, int edges_len,
+                                   bool use_pairs,
+                                   bool use_cyclic,
+                                   bool use_merge,
+                                   float merge_factor,
+                                   int twist_offset,
+                                   BMEdge **edges_out, int edges_cap)
+    {
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "bridge_loops edges=%eb use_pairs=%b use_cyclic=%b "
+                          "use_merge=%b merge_factor=%f twist_offset=%i",
+                          reinterpret_cast<BMHeader **>(edges),
+                          edges_len,
+                          use_pairs,
+                          use_cyclic,
+                          use_merge,
+                          double(merge_factor),
+                          twist_offset))
+        {
+            return -1;
+        }
+        BMO_op_exec(bm, &op);
+        if (BMO_error_occurred_at_level(bm, BMO_ERROR_CANCEL))
+        {
+            BMO_error_clear(bm);
+            BMO_op_finish(bm, &op);
+            return -1;
+        }
+
+        BMOpSlot *slot = BMO_slot_get(op.slots_out, "edges.out");
+        const int n = slot->len;
+        const int n_copy = (n < edges_cap) ? n : edges_cap;
+        BMEdge **slot_items = reinterpret_cast<BMEdge **>(slot->data.buf);
+        for (int i = 0; i < n_copy; ++i)
+        {
+            edges_out[i] = slot_items[i];
+        }
+
+        BMO_op_finish(bm, &op);
+        return n;
+    }
+
 } /* extern "C" */
