@@ -444,14 +444,19 @@ unsafe extern "C" {
     ) -> bool;
 
     /// Extrude a region of faces, forwarding the operator's
-    /// `use_dissolve_ortho_edges` slot. Refreshes face normals, then tags each
-    /// input face with `BM_ELEM_TAG` and passes the faces as the operator's
-    /// `geom` input (a face-set region extrude, where naming a face implies its
-    /// closure of edges and verts). When `use_dissolve_ortho_edges` is true,
+    /// `use_dissolve_ortho_edges` slot. Refreshes face normals, then tags the
+    /// full closure of each input face -- the face plus its edges and verts --
+    /// with `BM_ELEM_TAG` and passes them as the operator's `geom` input. The
+    /// region's edges must be in `geom` for the dissolve pass to run: the
+    /// operator only treats a region edge as a dissolve candidate after it has
+    /// deleted the original it lifted off, which it does only when the region's
+    /// edges are present in `geom`. When `use_dissolve_ortho_edges` is true,
     /// side (wall) faces that end up lying in the plane of the extruded region
-    /// are dissolved back into the surround, and the verts left as edge-pairs
-    /// by those merges are collapsed. `use_keep_orig` and `use_normal_flip` are
-    /// forwarded too. No originals are killed by this wrapper.
+    /// are dissolved back into the surround, and the verts left as edge-pairs by
+    /// those merges are collapsed. `use_keep_orig` and `use_normal_flip` are
+    /// forwarded too; the dissolve pass only has effect when originals are
+    /// deleted, i.e. `use_keep_orig == false`. No originals are killed by this
+    /// wrapper itself.
     ///
     /// Returns false if the operator rejected the input.
     ///

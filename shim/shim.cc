@@ -1330,10 +1330,18 @@ extern "C"
             }
         }
 
-        /* This entry point reproduces a face-set region extrude: naming a face
-         * implies its closure (its edges and verts), so tagging the input
-         * faces alone and handing the operator geom=%hf yields the same
-         * topology as enumerating the region's verts and edges explicitly. */
+        /* The dissolve-orthogonal-edges pass only runs over boundary edges of
+         * the extruded region, and a region edge is only treated as boundary
+         * once the operator has deleted the originals it lifted off. That
+         * deletion is gated on the region's *edges* being present in `geom`
+         * (the operator flags geom edges as EXT_INPUT and keys "delete
+         * originals" on them); a faces-only geom leaves the originals in place,
+         * so no region edge ever becomes boundary and the pass is a no-op.
+         *
+         * Tag the region's full closure -- its faces and their edges and verts
+         * -- and hand the operator geom=%hfev so the region's edges reach the
+         * EXT_INPUT pass. This matches the operator's documented expectation
+         * that `geom` include edges. */
         {
             BMIter it;
             BMFace *f;
@@ -1341,17 +1349,35 @@ extern "C"
             {
                 BM_elem_flag_disable(f, BM_ELEM_TAG);
             }
+            BMEdge *e;
+            BM_ITER_MESH(e, &it, bm, BM_EDGES_OF_MESH)
+            {
+                BM_elem_flag_disable(e, BM_ELEM_TAG);
+            }
+            BMVert *v;
+            BM_ITER_MESH(v, &it, bm, BM_VERTS_OF_MESH)
+            {
+                BM_elem_flag_disable(v, BM_ELEM_TAG);
+            }
         }
         for (int i = 0; i < faces_len; i++)
         {
-            BM_elem_flag_enable(faces[i], BM_ELEM_TAG);
+            BMFace *f = faces[i];
+            BM_elem_flag_enable(f, BM_ELEM_TAG);
+            BMLoop *l_iter, *l_first;
+            l_iter = l_first = BM_FACE_FIRST_LOOP(f);
+            do
+            {
+                BM_elem_flag_enable(l_iter->e, BM_ELEM_TAG);
+                BM_elem_flag_enable(l_iter->v, BM_ELEM_TAG);
+            } while ((l_iter = l_iter->next) != l_first);
         }
 
         BMOperator op;
         if (!BMO_op_initf(bm,
                           &op,
                           BMO_FLAG_DEFAULTS,
-                          "extrude_face_region geom=%hf use_keep_orig=%b use_normal_flip=%b use_dissolve_ortho_edges=%b",
+                          "extrude_face_region geom=%hfev use_keep_orig=%b use_normal_flip=%b use_dissolve_ortho_edges=%b",
                           BM_ELEM_TAG,
                           use_keep_orig,
                           use_normal_flip,
