@@ -1379,6 +1379,74 @@ extern "C"
                                    int twist_offset,
                                    BMEdge **edges_out, int edges_cap);
 
+    /* ---- Region-inset customdata-merge trace ---- */
+
+    /* One per-corner customdata-merge invocation recorded by
+     * `bms_inset_region_merge_trace`. At each moved fan hub the region-inset
+     * interpolation step reconciles two diverged inner loops by averaging the
+     * two "inner inset" loops behind them and writing the blend onto all four.
+     *
+     * Each of the four loops is identified by its owning face's index and its
+     * corner vertex's index (both `BM_elem_index` values, valid after the
+     * trace call rebuilds the index tables). `*_pre` / `*_post` hold the
+     * traced layer's value on that loop immediately before and after the
+     * merge writes. `vert_index` is the hub vertex shared by the two inner
+     * loops. `comps` is the traced layer's component count (1..4); unused
+     * components are zero. Any index is -1 if the corresponding loop was not
+     * captured. */
+    typedef struct BmsMergeInvocation
+    {
+        int vert_index;
+        int a_inner_face, a_inner_corner_vert;
+        int b_inner_face, b_inner_corner_vert;
+        int a_inner_inset_face, a_inner_inset_corner_vert;
+        int b_inner_inset_face, b_inner_inset_corner_vert;
+        float a_inner_pre[4], a_inner_post[4];
+        float b_inner_pre[4], b_inner_post[4];
+        float a_inner_inset_pre[4], a_inner_inset_post[4];
+        float b_inner_inset_pre[4], b_inner_inset_post[4];
+        int comps;
+    } BmsMergeInvocation;
+
+    /* Callee-allocated array of merge invocations. The caller zero-initialises
+     * this struct and passes it to `bms_inset_region_merge_trace`; that fills
+     * `invocations` with `len` records (callee-owned) and releases it via
+     * `bms_merge_trace_free`. */
+    typedef struct BmsMergeTrace
+    {
+        BmsMergeInvocation *invocations;
+        int len;
+        int cap;
+    } BmsMergeTrace;
+
+    /* Run region inset with `use_interpolate` enabled and record every
+     * per-corner customdata-merge invocation it performs.
+     *
+     * The mesh is mutated exactly as `inset_region` mutates it (the merge is
+     * applied). `faces` is the input face set (type-erased BMHeader* buffer of
+     * `faces_len`, all faces). `flags` is a bitmask:
+     *   bit 0 use_boundary, bit 1 use_even_offset, bit 2 use_relative_offset,
+     *   bit 3 use_edge_rail, bit 4 use_outset. (use_interpolate is always on.)
+     *
+     * `layer_name` names the loop layer to trace; the first of a float2 /
+     * float3 / float (color) layer with that name is used. A null or absent
+     * layer is not an error — invocations are still recorded with zeroed
+     * values.
+     *
+     * `out` must be a zero-initialised `BmsMergeTrace`; on success it is
+     * filled with a callee-owned array. Returns 1 on success, 0 if the
+     * operator rejected the input, -1 on a usage error (null `bm` / `out`). */
+    int bms_inset_region_merge_trace(BMesh *bm,
+                                     BMHeader **faces, int faces_len,
+                                     float thickness, float depth,
+                                     int flags,
+                                     const char *layer_name,
+                                     BmsMergeTrace *out);
+
+    /* Release the callee allocation held by a `BmsMergeTrace` and reset it to
+     * empty. Safe to call on a zero-initialised or already-freed trace. */
+    void bms_merge_trace_free(BmsMergeTrace *out);
+
 #ifdef __cplusplus
 }
 #endif

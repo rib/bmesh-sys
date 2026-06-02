@@ -1884,4 +1884,98 @@ unsafe extern "C" {
     ) -> bool;
 }
 
+// ---- Region-inset customdata-merge trace ----
+
+/// One per-corner customdata-merge invocation recorded by
+/// [`bms_inset_region_merge_trace`].
+///
+/// Each of the four loops is identified by its owning face index and its
+/// corner-vertex index (both `BM_elem_index` values, valid once the trace
+/// call has rebuilt the index tables). `*_pre` / `*_post` are the traced
+/// layer's value on that loop before and after the merge writes; `comps`
+/// is the layer's component count (1..=4) with unused components zeroed.
+/// Any index field is `-1` if its loop was not captured.
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct BmsMergeInvocation {
+    pub vert_index: c_int,
+    pub a_inner_face: c_int,
+    pub a_inner_corner_vert: c_int,
+    pub b_inner_face: c_int,
+    pub b_inner_corner_vert: c_int,
+    pub a_inner_inset_face: c_int,
+    pub a_inner_inset_corner_vert: c_int,
+    pub b_inner_inset_face: c_int,
+    pub b_inner_inset_corner_vert: c_int,
+    pub a_inner_pre: [f32; 4],
+    pub a_inner_post: [f32; 4],
+    pub b_inner_pre: [f32; 4],
+    pub b_inner_post: [f32; 4],
+    pub a_inner_inset_pre: [f32; 4],
+    pub a_inner_inset_post: [f32; 4],
+    pub b_inner_inset_pre: [f32; 4],
+    pub b_inner_inset_post: [f32; 4],
+    pub comps: c_int,
+}
+
+/// Callee-allocated array of merge invocations. Zero-initialise (e.g. via
+/// [`Default`]) before passing to [`bms_inset_region_merge_trace`]; the
+/// callee fills `invocations` with `len` records and the buffer must be
+/// released with [`bms_merge_trace_free`].
+#[repr(C)]
+#[derive(Debug)]
+pub struct BmsMergeTrace {
+    pub invocations: *mut BmsMergeInvocation,
+    pub len: c_int,
+    pub cap: c_int,
+}
+
+impl Default for BmsMergeTrace {
+    fn default() -> Self {
+        Self {
+            invocations: std::ptr::null_mut(),
+            len: 0,
+            cap: 0,
+        }
+    }
+}
+
+unsafe extern "C" {
+    /// Run region inset with interpolation enabled and record every
+    /// per-corner customdata-merge invocation it performs. The mesh is
+    /// mutated exactly as `inset_region` mutates it.
+    ///
+    /// # Safety
+    /// `bm` must be a valid mesh and `out` a valid, zero-initialised
+    /// [`BmsMergeTrace`]. `faces` must point to `faces_len` valid
+    /// `*mut BMHeader` (faces) belonging to `bm`. `flags` is a bitmask
+    /// (bit 0 `use_boundary`, bit 1 `use_even_offset`, bit 2
+    /// `use_relative_offset`, bit 3 `use_edge_rail`, bit 4 `use_outset`);
+    /// interpolation is always enabled. `layer_name` may be null; otherwise
+    /// it names the loop layer to trace (first matching float2 / float3 /
+    /// float / color layer). Returns `1` on success, `0` if the operator
+    /// rejected the input, `-1` on a null `bm` / `out`. On success `out`
+    /// owns a heap allocation that must be released with
+    /// [`bms_merge_trace_free`].
+    pub fn bms_inset_region_merge_trace(
+        bm: *mut BMesh,
+        faces: *mut *mut BMHeader,
+        faces_len: c_int,
+        thickness: f32,
+        depth: f32,
+        flags: c_int,
+        layer_name: *const std::os::raw::c_char,
+        out: *mut BmsMergeTrace,
+    ) -> c_int;
+
+    /// Release the callee allocation held by a [`BmsMergeTrace`] and reset
+    /// it to empty.
+    ///
+    /// # Safety
+    /// `out` must be a [`BmsMergeTrace`] previously filled by
+    /// [`bms_inset_region_merge_trace`], or zero-initialised. Safe to call
+    /// twice (idempotent).
+    pub fn bms_merge_trace_free(out: *mut BmsMergeTrace);
+}
+
 pub mod owned;

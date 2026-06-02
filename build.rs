@@ -10,6 +10,7 @@ fn main() {
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=shim/shim.h");
     println!("cargo:rerun-if-changed=shim/shim.cc");
+    println!("cargo:rerun-if-changed=shim/inset_trace.cc");
     println!("cargo:rerun-if-changed=shim/misc_stubs.cc");
     println!("cargo:rerun-if-changed=shim/clog_stubs.h");
 
@@ -210,6 +211,7 @@ fn main() {
         println!("cargo:rerun-if-changed={}", p.display());
     }
     b.file("shim/shim.cc");
+    b.file("shim/inset_trace.cc");
     b.file("shim/misc_stubs.cc");
 
     b.compile("bmesh_static");
