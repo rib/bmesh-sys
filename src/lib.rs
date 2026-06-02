@@ -668,6 +668,37 @@ unsafe extern "C" {
         out_cap: c_int,
     ) -> c_int;
 
+    /// Invoke BMesh's `split_edges` BMOP on the supplied edge set, peeling
+    /// the edges apart so adjacent faces no longer share them.
+    ///
+    /// `edges` / `edges_len` are the edges to separate. `verts` /
+    /// `verts_len` are optional constraint vertices consulted only when
+    /// `use_verts` is true; `verts` may be null with `verts_len` 0 (an
+    /// empty set is forwarded to the operator). The mesh behind `bm` is
+    /// mutated in place.
+    ///
+    /// The `edges.out` slot (the original edges that were disconnected)
+    /// is copied into `out_edges`:
+    ///
+    /// - `-1` on operator init failure.
+    /// - `>= 0` on success: the *total* edge count the slot produced. Up
+    ///   to `min(total, out_cap)` pointers are written to `out_edges` in
+    ///   the slot's emit order; if `total > out_cap` the buffer was
+    ///   undersized.
+    ///
+    /// `out_edges` may be null only when `out_cap` is zero (size-probing
+    /// mode).
+    pub fn bms_split_edges(
+        bm: *mut BMesh,
+        edges: *mut *mut BMEdge,
+        edges_len: c_int,
+        verts: *mut *mut BMVert,
+        verts_len: c_int,
+        use_verts: bool,
+        out_edges: *mut *mut BMEdge,
+        out_cap: c_int,
+    ) -> c_int;
+
     /// Invoke BMesh's `join_triangles` BMOP on the supplied face set.
     /// Merges adjacent triangle pairs into quads, subject to the delimit
     /// and angle gates. Every BMOP slot is forwarded verbatim:

@@ -363,6 +363,41 @@ extern "C"
                                bool use_verts,
                                BMFace **out_buf, int out_cap);
 
+    /* Invoke BMesh's `split_edges` operator on the supplied edge set.
+     *
+     * Peels the selected edges apart so that adjacent faces no longer
+     * share them, opening the mesh along those edges (the edge-separate /
+     * seam-opening operation). This is distinct from the `edge_split`
+     * subdivision kernel exposed by `bms_edge_split`: nothing is
+     * subdivided here, the existing topology is disconnected.
+     *
+     * `verts` / `verts_len` supply optional vertices that constrain where
+     * the split propagates; they are only consulted when `use_verts` is
+     * true. `verts` may be null with `verts_len` 0 (an empty set is passed
+     * to the operator). When `use_verts` is false the operator derives the
+     * split vertices from `edges` alone and the `verts` slot is ignored.
+     *
+     * In addition to performing the surgery, copies the operator's
+     * `edges.out` slot (the original edges that were disconnected) into
+     * the caller-supplied buffer `out_edges` of capacity `out_cap` edge
+     * slots.
+     *
+     * Return value:
+     *   -1  on operator init failure (BMO_op_initf rejected the format).
+     *   >= 0 on success: the *total* number of edges the slot produced.
+     *       Up to `min(total, out_cap)` pointers are written to
+     *       `out_edges` (in the slot's emit order). If the returned count
+     *       exceeds `out_cap`, the buffer was undersized.
+     *
+     * `out_edges` may be null only when `out_cap` is zero; in that case
+     * the function still runs the operator and returns the produced count
+     * for sizing purposes. */
+    int bms_split_edges(BMesh *bm,
+                        BMEdge **edges, int edges_len,
+                        BMVert **verts, int verts_len,
+                        bool use_verts,
+                        BMEdge **out_edges, int out_cap);
+
     /* Invoke BMesh's `join_triangles` operator on the supplied face set.
      * Merges adjacent triangle pairs into quads, subject to the delimit
      * and angle gates below. Every BMOP slot is exposed explicitly:

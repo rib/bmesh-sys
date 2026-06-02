@@ -1738,6 +1738,40 @@ extern "C"
         return n;
     }
 
+    int bms_split_edges(BMesh *bm,
+                        BMEdge **edges, int edges_len,
+                        BMVert **verts, int verts_len,
+                        bool use_verts,
+                        BMEdge **out_edges, int out_cap)
+    {
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "split_edges edges=%eb verts=%eb use_verts=%b",
+                          reinterpret_cast<BMHeader **>(edges),
+                          edges_len,
+                          reinterpret_cast<BMHeader **>(verts),
+                          (verts != nullptr) ? verts_len : 0,
+                          use_verts))
+        {
+            return -1;
+        }
+        BMO_op_exec(bm, &op);
+
+        BMOpSlot *slot = BMO_slot_get(op.slots_out, "edges.out");
+        const int n = slot->len;
+        const int n_copy = (n < out_cap) ? n : out_cap;
+        BMEdge **slot_items = reinterpret_cast<BMEdge **>(slot->data.buf);
+        for (int i = 0; i < n_copy; ++i)
+        {
+            out_edges[i] = slot_items[i];
+        }
+
+        BMO_op_finish(bm, &op);
+        return n;
+    }
+
     bool bms_join_triangles(BMesh *bm,
                             BMFace **faces, int faces_len,
                             bool cmp_seam, bool cmp_sharp, bool cmp_uvs,
