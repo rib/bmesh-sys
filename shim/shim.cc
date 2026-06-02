@@ -1864,6 +1864,28 @@ extern "C"
         return true;
     }
 
+    /* ---- Bisect edges (BMesh operator: bisect_edges) ---- */
+
+    bool bms_bisect_edges(BMesh *bm,
+                          BMEdge **edges, int edges_len,
+                          int cuts)
+    {
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "bisect_edges edges=%eb cuts=%i",
+                          reinterpret_cast<BMHeader **>(edges),
+                          edges_len,
+                          cuts))
+        {
+            return false;
+        }
+        BMO_op_exec(bm, &op);
+        BMO_op_finish(bm, &op);
+        return true;
+    }
+
     /* ---- Collapse (BMesh operator: collapse) ---- */
 
     bool bms_collapse(BMesh *bm,

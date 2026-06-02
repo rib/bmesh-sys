@@ -826,6 +826,21 @@ extern "C"
                              bool use_single_edge,
                              bool use_only_quads);
 
+    /* Invoke BMesh's `bisect_edges` operator on the supplied edge set. This
+     * is the pure per-edge midpoint-split phase: each input edge is split into
+     * `cuts` evenly-spaced segments, introducing `cuts` two-valence vertices
+     * along it. No per-face dispatch or inner-vertex connection is performed.
+     *
+     *   - `edges`     — the edges to split. The buffer may be null only when
+     *                   `edges_len == 0`, in which case nothing is split.
+     *   - `cuts`      — number of cuts per edge.
+     *
+     * The mesh is mutated in place. Returns true on normal completion, false
+     * if BMO_op_initf rejected the input. */
+    bool bms_bisect_edges(BMesh *bm,
+                          BMEdge **edges, int edges_len,
+                          int cuts);
+
     /* Invoke BMesh's `collapse` operator on the supplied edge set. Collapses
      * each connected group of input edges to a single vertex, welding their
      * endpoints together and removing the now-degenerate geometry.
