@@ -903,6 +903,49 @@ unsafe extern "C" {
         out_cap: c_int,
     ) -> c_int;
 
+    /// Invoke BMesh's `rotate_edges` BMOP on the supplied edge set. Each
+    /// eligible edge — one shared by exactly two faces whose union forms a
+    /// quad — is rotated (spun) to its other diagonal; ineligible edges are
+    /// skipped by the operator's own filtering. The two input slots are
+    /// forwarded:
+    ///
+    /// - `edges` — the candidate edges to rotate.
+    /// - `use_ccw` — rotate counter-clockwise when true, clockwise when
+    ///   false.
+    ///
+    /// Element pointers must remain valid for the duration of the call.
+    /// Returns false if the operator rejected the input.
+    pub fn bms_rotate_edges(
+        bm: *mut BMesh,
+        edges: *mut *mut BMEdge,
+        edges_len: c_int,
+        use_ccw: bool,
+    ) -> bool;
+
+    /// Capturing variant of [`bms_rotate_edges`].
+    ///
+    /// Runs the same `rotate_edges` BMOP and additionally copies the
+    /// operator's `edges.out` slot — one edge per successfully rotated edge —
+    /// into the caller-supplied buffer `out_buf` of capacity `out_cap` slots.
+    ///
+    /// Return value:
+    /// - `-1` on operator init failure (mirrors the `false` return of the
+    ///   non-capturing variant).
+    /// - `>= 0` on success: the *total* rotated-edge count produced by the
+    ///   operator. Up to `min(total, out_cap)` pointers are written to
+    ///   `out_buf` in the slot's emit order; if `total > out_cap` the buffer
+    ///   was undersized.
+    ///
+    /// `out_buf` may be null only when `out_cap` is zero (size-probing mode).
+    pub fn bms_rotate_edges_out(
+        bm: *mut BMesh,
+        edges: *mut *mut BMEdge,
+        edges_len: c_int,
+        use_ccw: bool,
+        out_buf: *mut *mut BMEdge,
+        out_cap: c_int,
+    ) -> c_int;
+
     /// Invoke BMesh's `connect_vert_pair` BMOP on a pair of verts. The
     /// operator connects the two input verts along the shortest path that
     /// stays within the surrounding faces: each edge the path crosses is

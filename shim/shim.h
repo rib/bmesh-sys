@@ -934,6 +934,44 @@ extern "C"
                                       BMFace **faces, int faces_len,
                                       BMEdge **out_buf, int out_cap);
 
+    /* Invoke BMesh's `rotate_edges` operator on the supplied edge set. Each
+     * eligible edge — one shared by exactly two faces whose union forms a
+     * quad — is rotated (spun) to its other diagonal; ineligible edges are
+     * skipped by the operator's own filtering. Exposes the operator's two
+     * BMOP input slots:
+     *
+     *   - `edges`   — the candidate edges to rotate.
+     *   - `use_ccw` — rotate counter-clockwise when true, clockwise when
+     *                 false.
+     *
+     * Returns true on success, false if BMO_op_initf rejected the input. */
+    bool bms_rotate_edges(BMesh *bm,
+                          BMEdge **edges, int edges_len,
+                          bool use_ccw);
+
+    /* Capturing variant of `bms_rotate_edges`.
+     *
+     * Runs the same `rotate_edges` BMOP but, in addition to performing the
+     * rotations, copies the operator's `edges.out` slot (one edge per
+     * successfully rotated edge) into the caller-supplied buffer `out_buf`
+     * of capacity `out_cap` edge slots.
+     *
+     * Return value:
+     *   -1  on operator init failure (matches the `false` return of the
+     *       non-capturing variant).
+     *   >= 0 on success: the *total* number of edges the slot produced. Up
+     *       to `min(total, out_cap)` pointers are written to `out_buf` (in
+     *       the slot's emit order). If the returned count exceeds `out_cap`,
+     *       the buffer was undersized.
+     *
+     * `out_buf` may be null only when `out_cap` is zero; in that case the
+     * function still runs the operator and returns the rotated-edge count
+     * for sizing purposes. */
+    int bms_rotate_edges_out(BMesh *bm,
+                             BMEdge **edges, int edges_len,
+                             bool use_ccw,
+                             BMEdge **out_buf, int out_cap);
+
     /* Invoke BMesh's `connect_vert_pair` operator. Given exactly two input
      * verts, the operator connects them along the shortest path that stays
      * within the surrounding faces: it splits each edge crossed by that path
