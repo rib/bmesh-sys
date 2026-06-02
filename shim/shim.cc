@@ -2908,6 +2908,62 @@ extern "C"
         return geom_count;
     }
 
+    /* Invoke BMesh's `transform` operator: apply the 4x4 `matrix` to the
+     * positions of every vertex in `verts`, optionally inside the local
+     * frame given by `space`. See shim.h for the slot mapping, the
+     * column-major matrix layout, and the null/empty handling. */
+    void bms_transform(BMesh *bm,
+                       BMVert **verts, int verts_len,
+                       const float *matrix,
+                       const float *space,
+                       bool use_shapekey)
+    {
+        using namespace blender;
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "transform verts=%eb use_shapekey=%b",
+                          verts,
+                          verts_len,
+                          use_shapekey))
+        {
+            return;
+        }
+
+        /* Both `matrix` (BMO_OP_SLOT_MAT) and `space` are forwarded as
+         * 16-float column-major buffers. A null `matrix` falls back to
+         * identity; a null `space` becomes the all-zeros sentinel the
+         * operator reads as "no space transform" (it is skipped, not
+         * inverted). */
+        float mat[4][4];
+        if (matrix)
+        {
+            for (int i = 0; i < 16; i++)
+            {
+                mat[i / 4][i % 4] = matrix[i];
+            }
+        }
+        else
+        {
+            for (int i = 0; i < 16; i++)
+            {
+                mat[i / 4][i % 4] = (i / 4 == i % 4) ? 1.0f : 0.0f;
+            }
+        }
+        BMO_slot_mat_set(&op, op.slots_in, "matrix", &mat[0][0], 4);
+
+        float mat_space[4][4];
+        for (int i = 0; i < 16; i++)
+        {
+            mat_space[i / 4][i % 4] = space ? space[i] : 0.0f;
+        }
+        BMO_slot_mat_set(&op, op.slots_in, "space", &mat_space[0][0], 4);
+
+        BMO_op_exec(bm, &op);
+        BMO_op_finish(bm, &op);
+    }
+
     /* Invoke BMesh's `symmetrize` operator: bisect `geom` along the plane
      * selected by `direction`, keep the named half, mirror it across the
      * plane, and weld at the seam within `dist`. See shim.h for the slot

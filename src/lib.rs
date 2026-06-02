@@ -1469,6 +1469,38 @@ unsafe extern "C" {
         out_geom_cap: c_int,
     ) -> c_int;
 
+    /// Invoke BMesh's `transform` operator: apply a 4x4 affine matrix to
+    /// the positions of the input vertices, mutating the mesh in place.
+    ///
+    /// `verts` (length `verts_len`) is a vertex pointer buffer fed to the
+    /// operator's `verts` in-slot; it may be null with `verts_len` `0`, in
+    /// which case the call is a no-op. Element pointers must remain valid
+    /// for the duration of the call.
+    ///
+    /// `matrix` points to 16 `f32` in Blender's native column-major 4x4
+    /// layout (read as `m[i / 4][i % 4]`, so translation occupies indices
+    /// 12, 13, 14). It may be null, in which case the identity matrix is
+    /// used.
+    ///
+    /// `space` uses the same 16-float column-major layout. When non-null
+    /// and non-zero, `matrix` is re-expressed in that frame before being
+    /// applied. A null pointer feeds the all-zeros sentinel, treated as
+    /// "no space transform", so `matrix` is applied directly in world
+    /// space.
+    ///
+    /// `use_shapekey`, when `true`, applies the same transform to each
+    /// vertex's shape-key coordinates as well.
+    ///
+    /// The operator has no output; vertex positions are mutated in place.
+    pub fn bms_transform(
+        bm: *mut BMesh,
+        verts: *mut *mut BMVert,
+        verts_len: c_int,
+        matrix: *const f32,
+        space: *const f32,
+        use_shapekey: bool,
+    );
+
     /// Invoke BMesh's `symmetrize` operator: bisect `geom` along an
     /// axis-aligned plane, clear the half selected by `direction`, then
     /// mirror the surviving half across the plane and weld the duplicated

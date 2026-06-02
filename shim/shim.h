@@ -713,6 +713,33 @@ extern "C"
                    bool mirror_u, bool mirror_v, bool mirror_udim,
                    BMHeader **out_geom, int out_geom_cap);
 
+    /* Invoke BMesh's `transform` operator: apply a 4x4 affine matrix to the
+     * positions of the input vertices, mutating the mesh in place.
+     *   - `verts` / `verts_len` fill the `verts` element buffer in-slot
+     *     (BM_VERT only). They may be null with `verts_len` 0, in which
+     *     case the operator is a no-op.
+     *   - `matrix` points to 16 floats in Blender's native column-major 4x4
+     *     layout (read as `m[i / 4][i % 4]`, so translation occupies indices
+     *     12, 13, 14). It is forwarded to the `matrix` (BMO_OP_SLOT_MAT)
+     *     in-slot; a null pointer is treated as the identity matrix.
+     *   - `space` uses the same 16-float column-major layout and feeds the
+     *     `space` in-slot. When non-zero, `matrix` is re-expressed in that
+     *     frame (space^-1 * matrix * space) before being applied. A null
+     *     pointer feeds the all-zeros sentinel, which the operator reads as
+     *     "no space transform" (the space slot is skipped, not inverted),
+     *     so `matrix` is applied directly in world space.
+     *   - `use_shapekey` sets the matching bool in-slot; when true the same
+     *     transform is also applied to each vertex's shape-key coordinates.
+     *
+     * The operator has no output slot; vertex positions are mutated in
+     * place and there is nothing to read back. Element pointers in `verts`
+     * must remain valid for the duration of the call. */
+    void bms_transform(BMesh *bm,
+                       BMVert **verts, int verts_len,
+                       const float *matrix,
+                       const float *space,
+                       bool use_shapekey);
+
     /* Invoke BMesh's `symmetrize` operator: bisect `geom` along an
      * axis-aligned plane, clear the named half, then mirror the surviving
      * half across the plane and weld the duplicated geometry onto the
