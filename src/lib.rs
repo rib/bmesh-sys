@@ -1046,6 +1046,32 @@ unsafe extern "C" {
         out_cap: c_int,
     ) -> c_int;
 
+    /// Face-capturing variant of [`bms_connect_verts_nonplanar`].
+    ///
+    /// Runs the same `connect_verts_nonplanar` BMOP and copies the
+    /// operator's `faces.out` slot — every face the operator touched (both
+    /// halves of each committed split and every leaf piece, each appearing
+    /// once) — into the caller-supplied buffer `out_buf` of capacity
+    /// `out_cap` slots.
+    ///
+    /// Return value:
+    /// - `-1` on operator init failure (mirrors the `false` return of the
+    ///   non-capturing variant).
+    /// - `>= 0` on success: the *total* touched-face count produced by the
+    ///   operator. Up to `min(total, out_cap)` pointers are written to
+    ///   `out_buf` in the slot's emit order; if `total > out_cap` the buffer
+    ///   was undersized.
+    ///
+    /// `out_buf` may be null only when `out_cap` is zero (size-probing mode).
+    pub fn bms_connect_verts_nonplanar_faces_out(
+        bm: *mut BMesh,
+        faces: *mut *mut BMFace,
+        faces_len: c_int,
+        angle_limit: f32,
+        out_buf: *mut *mut BMFace,
+        out_cap: c_int,
+    ) -> c_int;
+
     /// Invoke BMesh's `rotate_edges` BMOP on the supplied edge set. Each
     /// eligible edge — one shared by exactly two faces whose union forms a
     /// quad — is rotated (spun) to its other diagonal; ineligible edges are
