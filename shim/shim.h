@@ -363,6 +363,61 @@ extern "C"
                                bool use_verts,
                                BMFace **out_buf, int out_cap);
 
+    /* Invoke BMesh's `join_triangles` operator on the supplied face set.
+     * Merges adjacent triangle pairs into quads, subject to the delimit
+     * and angle gates below. Every BMOP slot is exposed explicitly:
+     *
+     *   - `cmp_seam` / `cmp_sharp` / `cmp_uvs` / `cmp_vcols` /
+     *     `cmp_materials` — block a merge when the shared edge / its loops
+     *     differ across the named attribute.
+     *   - `angle_face_threshold`  — max fold angle (radians) between the
+     *     two triangle normals; a value >= pi disables this gate.
+     *   - `angle_shape_threshold` — max deviation (radians) of the
+     *     resulting quad from an ideal shape; a value >= pi disables it.
+     *   - `topology_influence`    — 0..2 weighting that biases the merge
+     *     order toward regular topology.
+     *   - `deselect_joined`       — clear the select flag on faces that
+     *     were merged.
+     *
+     * Returns true on success, false if BMO_op_initf rejected the input. */
+    bool bms_join_triangles(BMesh *bm,
+                            BMFace **faces, int faces_len,
+                            bool cmp_seam, bool cmp_sharp, bool cmp_uvs,
+                            bool cmp_vcols, bool cmp_materials,
+                            float angle_face_threshold,
+                            float angle_shape_threshold,
+                            float topology_influence,
+                            bool deselect_joined);
+
+    /* Capturing variant of `bms_join_triangles`.
+     *
+     * Runs the same `join_triangles` BMOP but, in addition to performing
+     * the surgery, copies the operator's `faces.out` slot (the merged
+     * quads together with the triangles that were left un-merged) into
+     * the caller-supplied buffer `out_buf` of capacity `out_cap` face
+     * slots.
+     *
+     * Return value:
+     *   -1  on operator init failure (matches the `false` return of the
+     *       non-capturing variant).
+     *   >= 0 on success: the *total* number of faces the slot produced.
+     *       Up to `min(total, out_cap)` pointers are written to `out_buf`
+     *       (in the slot's emit order). If the returned count exceeds
+     *       `out_cap`, the buffer was undersized.
+     *
+     * `out_buf` may be null only when `out_cap` is zero; in that case
+     * the function still runs the operator and returns the face count
+     * for sizing purposes. */
+    int bms_join_triangles_out(BMesh *bm,
+                               BMFace **faces, int faces_len,
+                               bool cmp_seam, bool cmp_sharp, bool cmp_uvs,
+                               bool cmp_vcols, bool cmp_materials,
+                               float angle_face_threshold,
+                               float angle_shape_threshold,
+                               float topology_influence,
+                               bool deselect_joined,
+                               BMFace **out_buf, int out_cap);
+
     /* Invoke BMesh's general-purpose `delete` operator on a mixed element
      * buffer. `geom` is a type-erased buffer of `geom_len` BMHeader*
      * pointers (any mix of verts / edges / faces, since BMHeader is the

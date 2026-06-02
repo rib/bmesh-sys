@@ -668,6 +668,65 @@ unsafe extern "C" {
         out_cap: c_int,
     ) -> c_int;
 
+    /// Invoke BMesh's `join_triangles` BMOP on the supplied face set.
+    /// Merges adjacent triangle pairs into quads, subject to the delimit
+    /// and angle gates. Every BMOP slot is forwarded verbatim:
+    ///
+    /// - `cmp_seam` / `cmp_sharp` / `cmp_uvs` / `cmp_vcols` /
+    ///   `cmp_materials` — block a merge across a shared edge whose
+    ///   attribute differs.
+    /// - `angle_face_threshold` — max fold angle (radians) between the
+    ///   two triangle normals; `>= PI` disables this gate.
+    /// - `angle_shape_threshold` — max deviation (radians) of the merged
+    ///   quad from an ideal shape; `>= PI` disables this gate.
+    /// - `topology_influence` — 0..2 weighting biasing the merge order.
+    /// - `deselect_joined` — clear the select flag on merged faces.
+    ///
+    /// Returns false if the operator rejected the input.
+    pub fn bms_join_triangles(
+        bm: *mut BMesh,
+        faces: *mut *mut BMFace,
+        faces_len: c_int,
+        cmp_seam: bool,
+        cmp_sharp: bool,
+        cmp_uvs: bool,
+        cmp_vcols: bool,
+        cmp_materials: bool,
+        angle_face_threshold: f32,
+        angle_shape_threshold: f32,
+        topology_influence: f32,
+        deselect_joined: bool,
+    ) -> bool;
+
+    /// Capturing variant of [`bms_join_triangles`].
+    ///
+    /// Runs the same `join_triangles` BMOP and additionally copies the
+    /// operator's `faces.out` slot — the merged quads plus the triangles
+    /// left un-merged — into the caller-supplied buffer `out_buf` of
+    /// capacity `out_cap` slots.
+    ///
+    /// Return value semantics match [`bms_dissolve_faces_out`]: `-1`
+    /// on init failure; otherwise the total slot count, with up to
+    /// `min(total, out_cap)` pointers written to `out_buf` in emit
+    /// order. `out_buf` may be null only when `out_cap` is zero
+    /// (size-probing mode).
+    pub fn bms_join_triangles_out(
+        bm: *mut BMesh,
+        faces: *mut *mut BMFace,
+        faces_len: c_int,
+        cmp_seam: bool,
+        cmp_sharp: bool,
+        cmp_uvs: bool,
+        cmp_vcols: bool,
+        cmp_materials: bool,
+        angle_face_threshold: f32,
+        angle_shape_threshold: f32,
+        topology_influence: f32,
+        deselect_joined: bool,
+        out_buf: *mut *mut BMFace,
+        out_cap: c_int,
+    ) -> c_int;
+
     /// Invoke BMesh's `dissolve_limit` BMOP ("limited dissolve") on the
     /// supplied edge + vert sets. Greedy heap-driven planar / co-linear
     /// dissolve: every candidate within `angle_limit` (radians) is dissolved,

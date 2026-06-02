@@ -1738,6 +1738,89 @@ extern "C"
         return n;
     }
 
+    bool bms_join_triangles(BMesh *bm,
+                            BMFace **faces, int faces_len,
+                            bool cmp_seam, bool cmp_sharp, bool cmp_uvs,
+                            bool cmp_vcols, bool cmp_materials,
+                            float angle_face_threshold,
+                            float angle_shape_threshold,
+                            float topology_influence,
+                            bool deselect_joined)
+    {
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "join_triangles faces=%eb "
+                          "cmp_seam=%b cmp_sharp=%b cmp_uvs=%b cmp_vcols=%b cmp_materials=%b "
+                          "angle_face_threshold=%f angle_shape_threshold=%f "
+                          "topology_influence=%f deselect_joined=%b",
+                          reinterpret_cast<BMHeader **>(faces),
+                          faces_len,
+                          cmp_seam,
+                          cmp_sharp,
+                          cmp_uvs,
+                          cmp_vcols,
+                          cmp_materials,
+                          double(angle_face_threshold),
+                          double(angle_shape_threshold),
+                          double(topology_influence),
+                          deselect_joined))
+        {
+            return false;
+        }
+        BMO_op_exec(bm, &op);
+        BMO_op_finish(bm, &op);
+        return true;
+    }
+
+    int bms_join_triangles_out(BMesh *bm,
+                               BMFace **faces, int faces_len,
+                               bool cmp_seam, bool cmp_sharp, bool cmp_uvs,
+                               bool cmp_vcols, bool cmp_materials,
+                               float angle_face_threshold,
+                               float angle_shape_threshold,
+                               float topology_influence,
+                               bool deselect_joined,
+                               BMFace **out_buf, int out_cap)
+    {
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "join_triangles faces=%eb "
+                          "cmp_seam=%b cmp_sharp=%b cmp_uvs=%b cmp_vcols=%b cmp_materials=%b "
+                          "angle_face_threshold=%f angle_shape_threshold=%f "
+                          "topology_influence=%f deselect_joined=%b",
+                          reinterpret_cast<BMHeader **>(faces),
+                          faces_len,
+                          cmp_seam,
+                          cmp_sharp,
+                          cmp_uvs,
+                          cmp_vcols,
+                          cmp_materials,
+                          double(angle_face_threshold),
+                          double(angle_shape_threshold),
+                          double(topology_influence),
+                          deselect_joined))
+        {
+            return -1;
+        }
+        BMO_op_exec(bm, &op);
+
+        BMOpSlot *slot = BMO_slot_get(op.slots_out, "faces.out");
+        const int n = slot->len;
+        const int n_copy = (n < out_cap) ? n : out_cap;
+        BMFace **slot_items = reinterpret_cast<BMFace **>(slot->data.buf);
+        for (int i = 0; i < n_copy; ++i)
+        {
+            out_buf[i] = slot_items[i];
+        }
+
+        BMO_op_finish(bm, &op);
+        return n;
+    }
+
     bool bms_dissolve_limit(BMesh *bm,
                             BMEdge **edges, int edges_len,
                             BMVert **verts, int verts_len,
