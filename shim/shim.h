@@ -944,7 +944,8 @@ extern "C"
                              int quad_corner_type,
                              bool use_grid_fill,
                              bool use_single_edge,
-                             bool use_only_quads);
+                             bool use_only_quads,
+                             bool use_sphere);
 
     /* Invoke BMesh's `bisect_edges` operator on the supplied edge set. This
      * is the pure per-edge midpoint-split phase: each input edge is split into

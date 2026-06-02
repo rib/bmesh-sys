@@ -855,6 +855,8 @@ unsafe extern "C" {
     /// - `use_grid_fill` — fill fully-selected faces with a regular grid.
     /// - `use_single_edge` — tessellate the single-edge case in a quad/tri.
     /// - `use_only_quads` — only subdivide quads (loop-cut behaviour).
+    /// - `use_sphere` — project the newly-created subdivision geometry onto a
+    ///   sphere.
     ///
     /// Returns false if the operator rejected the input.
     pub fn bms_subdivide_edges(
@@ -872,6 +874,7 @@ unsafe extern "C" {
         use_grid_fill: bool,
         use_single_edge: bool,
         use_only_quads: bool,
+        use_sphere: bool,
     ) -> bool;
 
     /// Invoke BMesh's `bisect_edges` BMOP on the supplied edge set. This is

@@ -1967,7 +1967,8 @@ extern "C"
                              int quad_corner_type,
                              bool use_grid_fill,
                              bool use_single_edge,
-                             bool use_only_quads)
+                             bool use_only_quads,
+                             bool use_sphere)
     {
         BMOperator op;
         if (!BMO_op_initf(bm,
@@ -1977,7 +1978,8 @@ extern "C"
                           "smooth=%f smooth_falloff=%i use_smooth_even=%b "
                           "fractal=%f along_normal=%f seed=%i "
                           "quad_corner_type=%i use_grid_fill=%b "
-                          "use_single_edge=%b use_only_quads=%b",
+                          "use_single_edge=%b use_only_quads=%b "
+                          "use_sphere=%b",
                           reinterpret_cast<BMHeader **>(edges),
                           edges_len,
                           cuts,
@@ -1990,7 +1992,8 @@ extern "C"
                           quad_corner_type,
                           use_grid_fill,
                           use_single_edge,
-                          use_only_quads))
+                          use_only_quads,
+                          use_sphere))
         {
             return false;
         }
