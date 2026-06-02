@@ -900,6 +900,40 @@ extern "C"
                               bool check_degenerate,
                               BMEdge **out_buf, int out_cap);
 
+    /* Invoke BMesh's `connect_verts_concave` operator on the supplied face
+     * set. Each concave input face — one with more than three corners and at
+     * least one reflex corner — is cut into convex pieces along newly
+     * inserted divider edges; convex faces and triangles are left untouched.
+     * Exposes the operator's single BMOP input slot:
+     *
+     *   - `faces` — the candidate faces to make convex.
+     *
+     * Returns true on success, false if BMO_op_initf rejected the input. */
+    bool bms_connect_verts_concave(BMesh *bm,
+                                   BMFace **faces, int faces_len);
+
+    /* Capturing variant of `bms_connect_verts_concave`.
+     *
+     * Runs the same `connect_verts_concave` BMOP but, in addition to
+     * performing the cuts, copies the operator's `edges.out` slot (the
+     * surviving interior divider edges) into the caller-supplied buffer
+     * `out_buf` of capacity `out_cap` edge slots.
+     *
+     * Return value:
+     *   -1  on operator init failure (matches the `false` return of the
+     *       non-capturing variant).
+     *   >= 0 on success: the *total* number of edges the slot produced. Up
+     *       to `min(total, out_cap)` pointers are written to `out_buf` (in
+     *       the slot's emit order). If the returned count exceeds `out_cap`,
+     *       the buffer was undersized.
+     *
+     * `out_buf` may be null only when `out_cap` is zero; in that case the
+     * function still runs the operator and returns the created-edge count
+     * for sizing purposes. */
+    int bms_connect_verts_concave_out(BMesh *bm,
+                                      BMFace **faces, int faces_len,
+                                      BMEdge **out_buf, int out_cap);
+
     /* Invoke BMesh's `connect_vert_pair` operator. Given exactly two input
      * verts, the operator connects them along the shortest path that stays
      * within the surrounding faces: it splits each edge crossed by that path

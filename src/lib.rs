@@ -863,6 +863,46 @@ unsafe extern "C" {
         out_cap: c_int,
     ) -> c_int;
 
+    /// Invoke BMesh's `connect_verts_concave` BMOP on the supplied face set.
+    /// Each concave input face — one with more than three corners and at
+    /// least one reflex corner — is cut into convex pieces along newly
+    /// inserted divider edges; convex faces and triangles are left
+    /// untouched. The single input slot is forwarded:
+    ///
+    /// - `faces` — the candidate faces to make convex.
+    ///
+    /// Element pointers must remain valid for the duration of the call.
+    /// Returns false if the operator rejected the input.
+    pub fn bms_connect_verts_concave(
+        bm: *mut BMesh,
+        faces: *mut *mut BMFace,
+        faces_len: c_int,
+    ) -> bool;
+
+    /// Capturing variant of [`bms_connect_verts_concave`].
+    ///
+    /// Runs the same `connect_verts_concave` BMOP and additionally copies
+    /// the operator's `edges.out` slot — the surviving interior divider
+    /// edges — into the caller-supplied buffer `out_buf` of capacity
+    /// `out_cap` slots.
+    ///
+    /// Return value:
+    /// - `-1` on operator init failure (mirrors the `false` return of the
+    ///   non-capturing variant).
+    /// - `>= 0` on success: the *total* created-edge count produced by the
+    ///   operator. Up to `min(total, out_cap)` pointers are written to
+    ///   `out_buf` in the slot's emit order; if `total > out_cap` the buffer
+    ///   was undersized.
+    ///
+    /// `out_buf` may be null only when `out_cap` is zero (size-probing mode).
+    pub fn bms_connect_verts_concave_out(
+        bm: *mut BMesh,
+        faces: *mut *mut BMFace,
+        faces_len: c_int,
+        out_buf: *mut *mut BMEdge,
+        out_cap: c_int,
+    ) -> c_int;
+
     /// Invoke BMesh's `connect_vert_pair` BMOP on a pair of verts. The
     /// operator connects the two input verts along the shortest path that
     /// stays within the surrounding faces: each edge the path crosses is
