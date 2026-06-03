@@ -381,12 +381,13 @@ extern "C"
      * Returns true on success, false if BMO_op_initf rejected the input. */
     bool bms_reverse_uvs(BMesh *bm, BMFace **faces, int faces_len);
 
-    /* Maps to BMesh's `reverse_colors` operator. Reverses the active color
-     * layer's per-loop values around each input face — a pure loop-customdata
-     * permutation with no topology change.
+    /* Maps to BMesh's `reverse_colors` operator. Reverses the per-loop values
+     * of the color layer selected by `color_index` around each input face — a
+     * pure loop-customdata permutation with no topology change. `color_index`
+     * picks the color layer (0 selects the active/first layer).
      *
      * Returns true on success, false if BMO_op_initf rejected the input. */
-    bool bms_reverse_colors(BMesh *bm, BMFace **faces, int faces_len);
+    bool bms_reverse_colors(BMesh *bm, BMFace **faces, int faces_len, int color_index);
 
     /* Maps to BMesh's `rotate_uvs` operator. Cycles the active UV layer's
      * per-loop float2 values forward by one corner around each input face
@@ -397,15 +398,15 @@ extern "C"
      * Returns true on success, false if BMO_op_initf rejected the input. */
     bool bms_rotate_uvs(BMesh *bm, BMFace **faces, int faces_len, bool use_ccw);
 
-    /* Maps to BMesh's `rotate_colors` operator. Cycles the active color layer's
-     * per-loop values forward by one corner around each input face — a pure
-     * loop-customdata permutation with no topology change. `use_ccw` selects
-     * the rotation direction (counter-clockwise when true, clockwise when
-     * false). The color layer is selected by index, fixed to the active
-     * (index 0) layer.
+    /* Maps to BMesh's `rotate_colors` operator. Cycles the per-loop values of
+     * the color layer selected by `color_index` forward by one corner around
+     * each input face — a pure loop-customdata permutation with no topology
+     * change. `use_ccw` selects the rotation direction (counter-clockwise when
+     * true, clockwise when false). `color_index` picks the color layer (0
+     * selects the active/first layer).
      *
      * Returns true on success, false if BMO_op_initf rejected the input. */
-    bool bms_rotate_colors(BMesh *bm, BMFace **faces, int faces_len, bool use_ccw);
+    bool bms_rotate_colors(BMesh *bm, BMFace **faces, int faces_len, bool use_ccw, int color_index);
 
     /* Invoke BMesh's `recalc_face_normals` operator on the supplied face set
      * (a.k.a. "Recalculate Outside"). For each face it recomputes the cached

@@ -1794,15 +1794,16 @@ extern "C"
         return true;
     }
 
-    bool bms_reverse_colors(BMesh *bm, BMFace **faces, int faces_len)
+    bool bms_reverse_colors(BMesh *bm, BMFace **faces, int faces_len, int color_index)
     {
         BMOperator op;
         if (!BMO_op_initf(bm,
                           &op,
                           BMO_FLAG_DEFAULTS,
-                          "reverse_colors faces=%eb",
+                          "reverse_colors faces=%eb color_index=%i",
                           reinterpret_cast<BMHeader **>(faces),
-                          faces_len))
+                          faces_len,
+                          color_index))
         {
             return false;
         }
@@ -1829,7 +1830,7 @@ extern "C"
         return true;
     }
 
-    bool bms_rotate_colors(BMesh *bm, BMFace **faces, int faces_len, bool use_ccw)
+    bool bms_rotate_colors(BMesh *bm, BMFace **faces, int faces_len, bool use_ccw, int color_index)
     {
         BMOperator op;
         if (!BMO_op_initf(bm,
@@ -1839,7 +1840,7 @@ extern "C"
                           reinterpret_cast<BMHeader **>(faces),
                           faces_len,
                           use_ccw,
-                          0))
+                          color_index))
         {
             return false;
         }
