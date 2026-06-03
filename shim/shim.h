@@ -374,6 +374,13 @@ extern "C"
                                bool use_verts,
                                BMFace **out_buf, int out_cap);
 
+    /* Maps to BMesh's `reverse_uvs` operator. Reverses the active UV
+     * layer's per-loop float2 values around each input face — a pure
+     * loop-customdata permutation with no topology change.
+     *
+     * Returns true on success, false if BMO_op_initf rejected the input. */
+    bool bms_reverse_uvs(BMesh *bm, BMFace **faces, int faces_len);
+
     /* Invoke BMesh's `recalc_face_normals` operator on the supplied face set
      * (a.k.a. "Recalculate Outside"). For each face it recomputes the cached
      * normal from the corner positions, then propagates a consistent winding

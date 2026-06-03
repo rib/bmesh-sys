@@ -673,6 +673,18 @@ unsafe extern "C" {
         out_cap: c_int,
     ) -> c_int;
 
+    /// Maps to BMesh's `reverse_uvs` operator: reverses the active UV
+    /// layer's per-loop values around each input face (a pure
+    /// loop-customdata permutation, no topology change).
+    ///
+    /// `faces` points to an array of `faces_len` face pointers belonging
+    /// to `bm`. Returns false if the operator rejected the input.
+    pub fn bms_reverse_uvs(
+        bm: *mut BMesh,
+        faces: *mut *mut BMFace,
+        faces_len: c_int,
+    ) -> bool;
+
     /// Invoke BMesh's `recalc_face_normals` BMOP ("Recalculate Outside") on
     /// the supplied face set. Recomputes each face's cached normal from its
     /// corner positions and rewinds each manifold-connected component so it
