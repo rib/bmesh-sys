@@ -712,6 +712,22 @@ unsafe extern "C" {
         use_ccw: bool,
     ) -> bool;
 
+    /// Maps to BMesh's `rotate_colors` operator: cycles the active color
+    /// layer's per-loop values forward by one corner around each input
+    /// face (a pure loop-customdata permutation, no topology change).
+    /// `use_ccw` selects the rotation direction (counter-clockwise when
+    /// true, clockwise when false). The color layer is fixed to the active
+    /// (index 0) layer.
+    ///
+    /// `faces` points to an array of `faces_len` face pointers belonging
+    /// to `bm`. Returns false if the operator rejected the input.
+    pub fn bms_rotate_colors(
+        bm: *mut BMesh,
+        faces: *mut *mut BMFace,
+        faces_len: c_int,
+        use_ccw: bool,
+    ) -> bool;
+
     /// Invoke BMesh's `recalc_face_normals` BMOP ("Recalculate Outside") on
     /// the supplied face set. Recomputes each face's cached normal from its
     /// corner positions and rewinds each manifold-connected component so it

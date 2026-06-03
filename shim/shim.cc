@@ -1829,6 +1829,25 @@ extern "C"
         return true;
     }
 
+    bool bms_rotate_colors(BMesh *bm, BMFace **faces, int faces_len, bool use_ccw)
+    {
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "rotate_colors faces=%eb use_ccw=%b color_index=%i",
+                          reinterpret_cast<BMHeader **>(faces),
+                          faces_len,
+                          use_ccw,
+                          0))
+        {
+            return false;
+        }
+        BMO_op_exec(bm, &op);
+        BMO_op_finish(bm, &op);
+        return true;
+    }
+
     /* ---- Recalculate face normals (BMesh operator: recalc_face_normals) ---- */
     /*
      * The "Recalculate Outside" / "Recalculate Inside" pair. Both run the
