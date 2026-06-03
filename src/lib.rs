@@ -685,6 +685,18 @@ unsafe extern "C" {
         faces_len: c_int,
     ) -> bool;
 
+    /// Maps to BMesh's `reverse_colors` operator: reverses the active
+    /// color layer's per-loop values around each input face (a pure
+    /// loop-customdata permutation, no topology change).
+    ///
+    /// `faces` points to an array of `faces_len` face pointers belonging
+    /// to `bm`. Returns false if the operator rejected the input.
+    pub fn bms_reverse_colors(
+        bm: *mut BMesh,
+        faces: *mut *mut BMFace,
+        faces_len: c_int,
+    ) -> bool;
+
     /// Maps to BMesh's `rotate_uvs` operator: cycles the active UV
     /// layer's per-loop values forward by one corner around each input
     /// face (a pure loop-customdata permutation, no topology change).

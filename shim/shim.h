@@ -381,6 +381,13 @@ extern "C"
      * Returns true on success, false if BMO_op_initf rejected the input. */
     bool bms_reverse_uvs(BMesh *bm, BMFace **faces, int faces_len);
 
+    /* Maps to BMesh's `reverse_colors` operator. Reverses the active color
+     * layer's per-loop values around each input face — a pure loop-customdata
+     * permutation with no topology change.
+     *
+     * Returns true on success, false if BMO_op_initf rejected the input. */
+    bool bms_reverse_colors(BMesh *bm, BMFace **faces, int faces_len);
+
     /* Maps to BMesh's `rotate_uvs` operator. Cycles the active UV layer's
      * per-loop float2 values forward by one corner around each input face
      * — a pure loop-customdata permutation with no topology change.
