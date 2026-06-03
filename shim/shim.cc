@@ -1794,6 +1794,23 @@ extern "C"
         return true;
     }
 
+    bool bms_collapse_uvs(BMesh *bm, BMEdge **edges, int edges_len)
+    {
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "collapse_uvs edges=%eb",
+                          reinterpret_cast<BMHeader **>(edges),
+                          edges_len))
+        {
+            return false;
+        }
+        BMO_op_exec(bm, &op);
+        BMO_op_finish(bm, &op);
+        return true;
+    }
+
     bool bms_reverse_colors(BMesh *bm, BMFace **faces, int faces_len, int color_index)
     {
         BMOperator op;

@@ -685,6 +685,19 @@ unsafe extern "C" {
         faces_len: c_int,
     ) -> bool;
 
+    /// Maps to BMesh's `collapse_uvs` operator: averages and collapses the
+    /// per-loop values of interpolatable loop-customdata layers (UVs and
+    /// similar) across each input edge, merging the loops on either side.
+    /// Operates on an edge buffer rather than a face buffer.
+    ///
+    /// `edges` points to an array of `edges_len` edge pointers belonging
+    /// to `bm`. Returns false if the operator rejected the input.
+    pub fn bms_collapse_uvs(
+        bm: *mut BMesh,
+        edges: *mut *mut BMEdge,
+        edges_len: c_int,
+    ) -> bool;
+
     /// Maps to BMesh's `reverse_colors` operator: reverses the per-loop
     /// values of the color layer selected by `color_index` around each
     /// input face (a pure loop-customdata permutation, no topology change).

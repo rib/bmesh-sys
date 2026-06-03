@@ -381,6 +381,14 @@ extern "C"
      * Returns true on success, false if BMO_op_initf rejected the input. */
     bool bms_reverse_uvs(BMesh *bm, BMFace **faces, int faces_len);
 
+    /* Maps to BMesh's `collapse_uvs` operator. Averages and collapses the
+     * per-loop values of loop-customdata layers that support interpolation
+     * (UVs and similar) across each input edge, merging the values of the
+     * loops on either side. Operates on an edge buffer, not a face buffer.
+     *
+     * Returns true on success, false if BMO_op_initf rejected the input. */
+    bool bms_collapse_uvs(BMesh *bm, BMEdge **edges, int edges_len);
+
     /* Maps to BMesh's `reverse_colors` operator. Reverses the per-loop values
      * of the color layer selected by `color_index` around each input face — a
      * pure loop-customdata permutation with no topology change. `color_index`
