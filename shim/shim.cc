@@ -1794,6 +1794,24 @@ extern "C"
         return true;
     }
 
+    bool bms_rotate_uvs(BMesh *bm, BMFace **faces, int faces_len, bool use_ccw)
+    {
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "rotate_uvs faces=%eb use_ccw=%b",
+                          reinterpret_cast<BMHeader **>(faces),
+                          faces_len,
+                          use_ccw))
+        {
+            return false;
+        }
+        BMO_op_exec(bm, &op);
+        BMO_op_finish(bm, &op);
+        return true;
+    }
+
     /* ---- Recalculate face normals (BMesh operator: recalc_face_normals) ---- */
     /*
      * The "Recalculate Outside" / "Recalculate Inside" pair. Both run the

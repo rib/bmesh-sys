@@ -685,6 +685,21 @@ unsafe extern "C" {
         faces_len: c_int,
     ) -> bool;
 
+    /// Maps to BMesh's `rotate_uvs` operator: cycles the active UV
+    /// layer's per-loop values forward by one corner around each input
+    /// face (a pure loop-customdata permutation, no topology change).
+    /// `use_ccw` selects the rotation direction (counter-clockwise when
+    /// true, clockwise when false).
+    ///
+    /// `faces` points to an array of `faces_len` face pointers belonging
+    /// to `bm`. Returns false if the operator rejected the input.
+    pub fn bms_rotate_uvs(
+        bm: *mut BMesh,
+        faces: *mut *mut BMFace,
+        faces_len: c_int,
+        use_ccw: bool,
+    ) -> bool;
+
     /// Invoke BMesh's `recalc_face_normals` BMOP ("Recalculate Outside") on
     /// the supplied face set. Recomputes each face's cached normal from its
     /// corner positions and rewinds each manifold-connected component so it

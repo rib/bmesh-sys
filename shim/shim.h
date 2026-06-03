@@ -381,6 +381,15 @@ extern "C"
      * Returns true on success, false if BMO_op_initf rejected the input. */
     bool bms_reverse_uvs(BMesh *bm, BMFace **faces, int faces_len);
 
+    /* Maps to BMesh's `rotate_uvs` operator. Cycles the active UV layer's
+     * per-loop float2 values forward by one corner around each input face
+     * — a pure loop-customdata permutation with no topology change.
+     * `use_ccw` selects the rotation direction (counter-clockwise when
+     * true, clockwise when false).
+     *
+     * Returns true on success, false if BMO_op_initf rejected the input. */
+    bool bms_rotate_uvs(BMesh *bm, BMFace **faces, int faces_len, bool use_ccw);
+
     /* Invoke BMesh's `recalc_face_normals` operator on the supplied face set
      * (a.k.a. "Recalculate Outside"). For each face it recomputes the cached
      * normal from the corner positions, then propagates a consistent winding
