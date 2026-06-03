@@ -673,6 +673,32 @@ unsafe extern "C" {
         out_cap: c_int,
     ) -> c_int;
 
+    /// Invoke BMesh's `recalc_face_normals` BMOP ("Recalculate Outside") on
+    /// the supplied face set. Recomputes each face's cached normal from its
+    /// corner positions and rewinds each manifold-connected component so it
+    /// faces consistently outward. The mesh behind `bm` is mutated in place.
+    ///
+    /// `faces` / `faces_len` describe a caller-owned array of face pointers;
+    /// the array itself is read only. Returns `true` on success, `false` if
+    /// the operator rejected the input.
+    pub fn bms_recalc_face_normals(
+        bm: *mut BMesh,
+        faces: *mut *mut BMFace,
+        faces_len: c_int,
+    ) -> bool;
+
+    /// "Recalculate Inside" companion of [`bms_recalc_face_normals`]: runs
+    /// the same BMOP to make each component consistently wound, then reverses
+    /// the winding of every face in `faces` so the component points inward.
+    /// The mesh behind `bm` is mutated in place.
+    ///
+    /// Returns `true` on success, `false` if the operator rejected the input.
+    pub fn bms_recalc_face_normals_inside(
+        bm: *mut BMesh,
+        faces: *mut *mut BMFace,
+        faces_len: c_int,
+    ) -> bool;
+
     /// Invoke BMesh's `split_edges` BMOP on the supplied edge set, peeling
     /// the edges apart so adjacent faces no longer share them.
     ///

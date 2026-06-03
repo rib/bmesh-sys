@@ -1777,6 +1777,51 @@ extern "C"
         return n;
     }
 
+    /* ---- Recalculate face normals (BMesh operator: recalc_face_normals) ---- */
+    /*
+     * The "Recalculate Outside" / "Recalculate Inside" pair. Both run the
+     * `recalc_face_normals` BMOP, which recomputes each named face's cached
+     * normal from its corner geometry and then walks the manifold adjacency
+     * of the input set, flipping faces so every connected component is
+     * consistently wound with an outward-facing normal. The input pointers
+     * are translated into the operator's `faces=%eb` element-buffer slot and
+     * are not themselves modified.
+     */
+    bool bms_recalc_face_normals(BMesh *bm,
+                                 BMFace **faces, int faces_len)
+    {
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "recalc_face_normals faces=%eb",
+                          reinterpret_cast<BMHeader **>(faces),
+                          faces_len))
+        {
+            return false;
+        }
+        BMO_op_exec(bm, &op);
+        BMO_op_finish(bm, &op);
+        return true;
+    }
+
+    bool bms_recalc_face_normals_inside(BMesh *bm,
+                                        BMFace **faces, int faces_len)
+    {
+        /* First make the component consistently outward-wound, then reverse
+         * each named face's winding (which also negates its cached normal) so
+         * the component ends up consistently inward-facing. */
+        if (!bms_recalc_face_normals(bm, faces, faces_len))
+        {
+            return false;
+        }
+        for (int i = 0; i < faces_len; ++i)
+        {
+            BM_face_normal_flip(bm, faces[i]);
+        }
+        return true;
+    }
+
     int bms_split_edges(BMesh *bm,
                         BMEdge **edges, int edges_len,
                         BMVert **verts, int verts_len,

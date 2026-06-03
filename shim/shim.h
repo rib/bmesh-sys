@@ -374,6 +374,25 @@ extern "C"
                                bool use_verts,
                                BMFace **out_buf, int out_cap);
 
+    /* Invoke BMesh's `recalc_face_normals` operator on the supplied face set
+     * (a.k.a. "Recalculate Outside"). For each face it recomputes the cached
+     * normal from the corner positions, then propagates a consistent winding
+     * across each manifold-connected component so the component faces outward.
+     *
+     * Returns true on success, false if BMO_op_initf rejected the input. */
+    bool bms_recalc_face_normals(BMesh *bm,
+                                 BMFace **faces, int faces_len);
+
+    /* "Recalculate Inside" companion of `bms_recalc_face_normals`.
+     *
+     * Runs the same `recalc_face_normals` BMOP to make each manifold-connected
+     * component consistently wound, then reverses the winding of every named
+     * face so the component points inward instead of outward.
+     *
+     * Returns true on success, false if BMO_op_initf rejected the input. */
+    bool bms_recalc_face_normals_inside(BMesh *bm,
+                                        BMFace **faces, int faces_len);
+
     /* Invoke BMesh's `split_edges` operator on the supplied edge set.
      *
      * Peels the selected edges apart so that adjacent faces no longer
