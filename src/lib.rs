@@ -711,6 +711,20 @@ unsafe extern "C" {
         verts_len: c_int,
     ) -> bool;
 
+    /// Maps to BMesh's `pointmerge_facedata` operator: snaps the per-loop
+    /// values of interpolatable loop-customdata layers across the loops of
+    /// the input vertices to those of a single snap vertex.
+    ///
+    /// `verts` points to an array of `verts_len` vertex pointers belonging
+    /// to `bm`; `vert_snap` is the single snap vertex. Returns false if the
+    /// operator rejected the input.
+    pub fn bms_pointmerge_facedata(
+        bm: *mut BMesh,
+        verts: *mut *mut BMVert,
+        verts_len: c_int,
+        vert_snap: *mut BMVert,
+    ) -> bool;
+
     /// Maps to BMesh's `reverse_colors` operator: reverses the per-loop
     /// values of the color layer selected by `color_index` around each
     /// input face (a pure loop-customdata permutation, no topology change).

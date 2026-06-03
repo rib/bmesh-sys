@@ -1828,6 +1828,24 @@ extern "C"
         return true;
     }
 
+    bool bms_pointmerge_facedata(BMesh *bm, BMVert **verts, int verts_len, BMVert *vert_snap)
+    {
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "pointmerge_facedata verts=%eb vert_snap=%e",
+                          reinterpret_cast<BMHeader **>(verts),
+                          verts_len,
+                          reinterpret_cast<BMHeader *>(vert_snap)))
+        {
+            return false;
+        }
+        BMO_op_exec(bm, &op);
+        BMO_op_finish(bm, &op);
+        return true;
+    }
+
     bool bms_reverse_colors(BMesh *bm, BMFace **faces, int faces_len, int color_index)
     {
         BMOperator op;

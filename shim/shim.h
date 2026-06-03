@@ -397,6 +397,14 @@ extern "C"
      * Returns true on success, false if BMO_op_initf rejected the input. */
     bool bms_average_vert_facedata(BMesh *bm, BMVert **verts, int verts_len);
 
+    /* Maps to BMesh's `pointmerge_facedata` operator. Snaps the per-loop
+     * values of interpolatable loop-customdata layers across the loops of
+     * the input vertices to those of a single snap vertex. Operates on a
+     * vertex buffer plus one snap vertex.
+     *
+     * Returns true on success, false if BMO_op_initf rejected the input. */
+    bool bms_pointmerge_facedata(BMesh *bm, BMVert **verts, int verts_len, BMVert *vert_snap);
+
     /* Maps to BMesh's `reverse_colors` operator. Reverses the per-loop values
      * of the color layer selected by `color_index` around each input face — a
      * pure loop-customdata permutation with no topology change. `color_index`
