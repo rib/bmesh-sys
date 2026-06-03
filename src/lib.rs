@@ -698,6 +698,19 @@ unsafe extern "C" {
         edges_len: c_int,
     ) -> bool;
 
+    /// Maps to BMesh's `average_vert_facedata` operator: averages the
+    /// per-loop values of interpolatable loop-customdata layers across the
+    /// loops of each input vertex and writes the averaged result back to
+    /// those loops. Operates on a vertex buffer.
+    ///
+    /// `verts` points to an array of `verts_len` vertex pointers belonging
+    /// to `bm`. Returns false if the operator rejected the input.
+    pub fn bms_average_vert_facedata(
+        bm: *mut BMesh,
+        verts: *mut *mut BMVert,
+        verts_len: c_int,
+    ) -> bool;
+
     /// Maps to BMesh's `reverse_colors` operator: reverses the per-loop
     /// values of the color layer selected by `color_index` around each
     /// input face (a pure loop-customdata permutation, no topology change).

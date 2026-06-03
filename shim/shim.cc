@@ -1811,6 +1811,23 @@ extern "C"
         return true;
     }
 
+    bool bms_average_vert_facedata(BMesh *bm, BMVert **verts, int verts_len)
+    {
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "average_vert_facedata verts=%eb",
+                          reinterpret_cast<BMHeader **>(verts),
+                          verts_len))
+        {
+            return false;
+        }
+        BMO_op_exec(bm, &op);
+        BMO_op_finish(bm, &op);
+        return true;
+    }
+
     bool bms_reverse_colors(BMesh *bm, BMFace **faces, int faces_len, int color_index)
     {
         BMOperator op;
