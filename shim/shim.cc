@@ -1554,6 +1554,76 @@ extern "C"
         return true;
     }
 
+    /* ---- Spin (BMesh operator: spin) ---- */
+    /*
+     * Drives BMesh's `spin` operator end-to-end. The input geometry is passed
+     * via the `geom` element buffer (%eb); `cent`, `axis` and `dvec` are
+     * forwarded as %v vectors (a null `dvec` becomes a zero translation). The
+     * operator's `space` MAT slot is left at its identity default. The
+     * `geom_last.out` element buffer is walked with a BMOIter restricted to
+     * BM_ALL_NOLOOP and written into `out_geom_last` up to `out_geom_last_cap`
+     * entries; its full count is the return value (which may exceed the cap),
+     * or -1 if BMO_op_initf rejected the input.
+     */
+    int bms_spin(BMesh *bm,
+                 BMHeader **geom, int geom_len,
+                 const float *cent,
+                 const float *axis,
+                 const float *dvec,
+                 float angle,
+                 int steps,
+                 bool use_merge,
+                 bool use_normal_flip,
+                 bool use_duplicate,
+                 BMHeader **out_geom_last, int out_geom_last_cap)
+    {
+        using namespace blender;
+
+        const float zero_vec[3] = {0.0f, 0.0f, 0.0f};
+        const float *dvec_arg = dvec ? dvec : zero_vec;
+
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "spin geom=%eb cent=%v axis=%v dvec=%v angle=%f steps=%i "
+                          "use_merge=%b use_normal_flip=%b use_duplicate=%b",
+                          geom,
+                          geom_len,
+                          cent,
+                          axis,
+                          dvec_arg,
+                          angle,
+                          steps,
+                          use_merge,
+                          use_normal_flip,
+                          use_duplicate))
+        {
+            return -1;
+        }
+
+        BMO_op_exec(bm, &op);
+
+        /* Walk the `geom_last.out` element buffer (leading edge of last step). */
+        int geom_last_count = 0;
+        {
+            BMOIter oiter;
+            BMHeader *ele = static_cast<BMHeader *>(
+                BMO_iter_new(&oiter, op.slots_out, "geom_last.out", BM_ALL_NOLOOP));
+            for (; ele; ele = static_cast<BMHeader *>(BMO_iter_step(&oiter)))
+            {
+                if (geom_last_count < out_geom_last_cap)
+                {
+                    out_geom_last[geom_last_count] = ele;
+                }
+                geom_last_count++;
+            }
+        }
+
+        BMO_op_finish(bm, &op);
+        return geom_last_count;
+    }
+
     /* ---- Inset (BMesh operators: inset_region / inset_individual) ---- */
     /*
      * Both inset variants are exposed as one shim each. The `faces` set is

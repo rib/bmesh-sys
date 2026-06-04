@@ -268,6 +268,30 @@ extern "C"
     /* call. Returns true on success, false if the operator rejected the input.   */
     bool bms_extrude_vert_indiv(BMesh *bm, BMVert **verts, int verts_len);
 
+    /* Spin (rotate-extrude / lathe) a geometry selection around an axis.        */
+    /* Invokes BMesh's `spin` operator, sweeping `geom` through `angle` radians   */
+    /* in `steps` slices about `axis` passing through `cent`. Each step emits a   */
+    /* band of geometry; `dvec` adds a per-step screw translation (pass null for  */
+    /* a pure rotation). With `use_merge` and a full 360 degree sweep the first   */
+    /* and last rings are welded. `use_normal_flip` reverses the generated face   */
+    /* winding; `use_duplicate` copies the input geometry per step instead of     */
+    /* extruding it. `cent`, `axis` and `dvec` are 3-float vectors. The           */
+    /* operator's `geom_last.out` slot (the leading edge of the final step) is    */
+    /* walked with a BM_ALL_NOLOOP iterator and written into `out_geom_last` up   */
+    /* to `out_geom_last_cap` entries. Returns the total `geom_last.out` count    */
+    /* (which may exceed the capacity), or -1 if the operator rejected the input. */
+    int bms_spin(BMesh *bm,
+                 BMHeader **geom, int geom_len,
+                 const float *cent,
+                 const float *axis,
+                 const float *dvec,
+                 float angle,
+                 int steps,
+                 bool use_merge,
+                 bool use_normal_flip,
+                 bool use_duplicate,
+                 BMHeader **out_geom_last, int out_geom_last_cap);
+
     /* Inset a region of faces. Marks each input face with BM_ELEM_TAG, then
      * invokes BMesh's `inset_region` operator. Every parameter the operator
      * exposes is forwarded explicitly so A/B tests can pin each parameter axis.

@@ -551,6 +551,36 @@ unsafe extern "C" {
         verts_len: c_int,
     ) -> bool;
 
+    /// Drives BMesh's `spin` operator (rotate-extrude / lathe), sweeping the
+    /// mixed-element `geom` buffer through `angle` radians in `steps` slices
+    /// about `axis` passing through `cent`. `dvec` adds a per-step screw
+    /// translation; pass null for a pure rotation. `use_merge` welds the first
+    /// and last rings on a full 360 degree sweep, `use_normal_flip` reverses
+    /// the generated face winding, and `use_duplicate` copies the input per
+    /// step instead of extruding it.
+    ///
+    /// `geom` must point to `geom_len` valid `*mut BMHeader` belonging to `bm`.
+    /// `cent`, `axis` and `dvec` are each `*const f32` to 3 floats (`dvec` may
+    /// be null). The operator's `geom_last.out` slot is written into
+    /// `out_geom_last` up to `out_geom_last_cap` entries; the buffer is
+    /// overwritten in place. Returns the total `geom_last.out` count (which may
+    /// exceed the capacity), or -1 if the operator rejected the input.
+    pub fn bms_spin(
+        bm: *mut BMesh,
+        geom: *mut *mut BMHeader,
+        geom_len: c_int,
+        cent: *const f32,
+        axis: *const f32,
+        dvec: *const f32,
+        angle: f32,
+        steps: c_int,
+        use_merge: bool,
+        use_normal_flip: bool,
+        use_duplicate: bool,
+        out_geom_last: *mut *mut BMHeader,
+        out_geom_last_cap: c_int,
+    ) -> c_int;
+
     /// Marks each input face with `BM_ELEM_TAG`, then invokes BMesh's
     /// `inset_region` operator. Every parameter the operator exposes is
     /// forwarded explicitly so A/B tests can pin each parameter axis.
