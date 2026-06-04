@@ -627,6 +627,55 @@ unsafe extern "C" {
         depth: f32,
     ) -> bool;
 
+    /// Bevel the supplied verts / edges / faces via BMesh's `bevel` BMOP.
+    ///
+    /// `geom` is a mixed element buffer of `*mut BMVert` / `*mut BMEdge` /
+    /// `*mut BMFace` type-erased to `*mut BMHeader`, of length `geom_len`.
+    /// The buffer is read but not modified; the operator flushes it into
+    /// element tags internally. Only manifold edges (and the verts incident
+    /// to them) are beveled — non-manifold edges in `geom` are ignored.
+    ///
+    /// Integer enum parameters use the operator's 0-based enum values:
+    ///
+    /// - `offset_type`: OFFSET=0, WIDTH=1, DEPTH=2, PERCENT=3, ABSOLUTE=4
+    /// - `profile_type`: SUPERELLIPSE=0, CUSTOM=1
+    /// - `affect`: VERTICES=0, EDGES=1
+    /// - `face_strength_mode`: NONE=0, NEW=1, AFFECTED=2, ALL=3
+    /// - `miter_outer` / `miter_inner`: SHARP=0, PATCH=1, ARC=2
+    /// - `vmesh_method`: ADJ=0, CUTOFF=1
+    ///
+    /// `material` is a material-slot index, or `-1` to inherit from adjacent
+    /// faces. The operator is a no-op when `offset <= 0.0`. Output geometry is
+    /// mutated in place; re-read the mesh to observe the result.
+    ///
+    /// Returns false if the operator rejected the input.
+    ///
+    /// # Safety
+    /// `bm` must be a valid mesh and `geom` must point to `geom_len` valid
+    /// element pointers belonging to `bm`.
+    pub fn bms_bevel(
+        bm: *mut BMesh,
+        geom: *mut *mut BMHeader,
+        geom_len: c_int,
+        offset: f32,
+        offset_type: c_int,
+        segments: c_int,
+        profile: f32,
+        profile_type: c_int,
+        affect: c_int,
+        clamp_overlap: bool,
+        material: c_int,
+        loop_slide: bool,
+        mark_seam: bool,
+        mark_sharp: bool,
+        harden_normals: bool,
+        face_strength_mode: c_int,
+        miter_outer: c_int,
+        miter_inner: c_int,
+        spread: f32,
+        vmesh_method: c_int,
+    ) -> bool;
+
     /// Invoke BMesh's `dissolve_verts` BMOP on the supplied vertex set.
     /// Both BMOP slot parameters are forwarded explicitly:
     ///

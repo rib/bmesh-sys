@@ -1749,6 +1749,97 @@ extern "C"
         return true;
     }
 
+    /* ---- Bevel (BMesh operator: bevel) ---- */
+    /*
+     * The bevel operator is driven through its BMOP slot form (no public
+     * convenience C wrapper surfaces its full parameter set). The mixed
+     * vert/edge/face element buffer is passed via "%eb"; the operator flushes
+     * it into BM_ELEM_TAG internally, so the input pointers are not touched.
+     *
+     * Every slot is forwarded explicitly. The integer enum slots are passed
+     * as raw "%i" values (the operator reads them with BMO_slot_int_get). The
+     * custom-profile pointer slot is left at its default (null).
+     *
+     * Output geometry is mutated in place; the operator's element-buffer
+     * output slots are not harvested.
+     */
+    bool bms_bevel(BMesh *bm,
+                   BMHeader **geom, int geom_len,
+                   float offset,
+                   int offset_type,
+                   int segments,
+                   float profile,
+                   int profile_type,
+                   int affect,
+                   bool clamp_overlap,
+                   int material,
+                   bool loop_slide,
+                   bool mark_seam,
+                   bool mark_sharp,
+                   bool harden_normals,
+                   int face_strength_mode,
+                   int miter_outer,
+                   int miter_inner,
+                   float spread,
+                   int vmesh_method)
+    {
+        /* The offset solver reads face / vertex normals; freshly-built meshes
+         * carry stale (zero) normals until refreshed. Refresh serially (face
+         * normals first, then vertex normals from incident faces) to avoid the
+         * task-scheduler / loop-normal machinery the whole-mesh updater pulls
+         * in. */
+        {
+            BMFace *f;
+            BMIter face_iter;
+            BM_ITER_MESH(f, &face_iter, bm, BM_FACES_OF_MESH)
+            {
+                BM_face_normal_update(f);
+            }
+            BMVert *v;
+            BMIter vert_iter;
+            BM_ITER_MESH(v, &vert_iter, bm, BM_VERTS_OF_MESH)
+            {
+                BM_vert_normal_update_all(v);
+            }
+        }
+
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "bevel geom=%eb offset=%f offset_type=%i segments=%i "
+                          "profile=%f profile_type=%i affect=%i clamp_overlap=%b "
+                          "material=%i loop_slide=%b mark_seam=%b mark_sharp=%b "
+                          "harden_normals=%b face_strength_mode=%i "
+                          "miter_outer=%i miter_inner=%i spread=%f vmesh_method=%i",
+                          geom,
+                          geom_len,
+                          double(offset),
+                          offset_type,
+                          segments,
+                          double(profile),
+                          profile_type,
+                          affect,
+                          clamp_overlap,
+                          material,
+                          loop_slide,
+                          mark_seam,
+                          mark_sharp,
+                          harden_normals,
+                          face_strength_mode,
+                          miter_outer,
+                          miter_inner,
+                          double(spread),
+                          vmesh_method))
+        {
+            return false;
+        }
+
+        BMO_op_exec(bm, &op);
+        BMO_op_finish(bm, &op);
+        return true;
+    }
+
     /* ---- Dissolve (BMesh operators: dissolve_verts / dissolve_edges) ---- */
     /*
      * Both dissolve variants are exposed via the BMOP slot-form (using "%eb" /

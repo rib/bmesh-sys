@@ -331,6 +331,57 @@ extern "C"
                               float thickness,
                               float depth);
 
+    /* Bevel the supplied vertices / edges / faces via BMesh's `bevel`
+     * operator. `geom` is a mixed element buffer of BMVert* / BMEdge* /
+     * BMFace* (type-erased to BMHeader*) of length `geom_len`, filled into
+     * the operator's `geom` input slot. The operator only bevels manifold
+     * edges and the verts incident to them; non-manifold edges in `geom`
+     * are ignored.
+     *
+     * Every operator slot is forwarded explicitly. The integer enum slots
+     * take the operator's enum values (all 0-based):
+     *
+     *   - `offset_type`        — OFFSET=0, WIDTH=1, DEPTH=2, PERCENT=3,
+     *                            ABSOLUTE=4
+     *   - `profile_type`       — SUPERELLIPSE=0, CUSTOM=1
+     *   - `affect`             — VERTICES=0, EDGES=1
+     *   - `face_strength_mode` — NONE=0, NEW=1, AFFECTED=2, ALL=3
+     *   - `miter_outer` /
+     *     `miter_inner`        — SHARP=0, PATCH=1, ARC=2
+     *   - `vmesh_method`       — ADJ=0, CUTOFF=1
+     *
+     * `material` is a material-slot index, or -1 to inherit from adjacent
+     * faces. The operator is a no-op when `offset <= 0`.
+     *
+     * The custom-profile slot is always passed as null (the SUPERELLIPSE
+     * profile is parameterised entirely by `profile`).
+     *
+     * Output geometry is left in place: the operator's verts/edges/faces
+     * output slots carry no information not recoverable by re-reading the
+     * mesh, so they are not surfaced. Face and vertex normals are refreshed
+     * before the op runs, since the offset solver reads them.
+     *
+     * Returns true on success, false if BMO_op_initf rejected the input. */
+    bool bms_bevel(BMesh *bm,
+                   BMHeader **geom, int geom_len,
+                   float offset,
+                   int offset_type,
+                   int segments,
+                   float profile,
+                   int profile_type,
+                   int affect,
+                   bool clamp_overlap,
+                   int material,
+                   bool loop_slide,
+                   bool mark_seam,
+                   bool mark_sharp,
+                   bool harden_normals,
+                   int face_strength_mode,
+                   int miter_outer,
+                   int miter_inner,
+                   float spread,
+                   int vmesh_method);
+
     /* Invoke BMesh's `dissolve_verts` operator on the supplied vertex set.
      * Exposes both BMOP slot parameters explicitly:
      *
