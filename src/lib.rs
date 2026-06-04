@@ -561,10 +561,14 @@ unsafe extern "C" {
     ///
     /// `geom` must point to `geom_len` valid `*mut BMHeader` belonging to `bm`.
     /// `cent`, `axis` and `dvec` are each `*const f32` to 3 floats (`dvec` may
-    /// be null). The operator's `geom_last.out` slot is written into
-    /// `out_geom_last` up to `out_geom_last_cap` entries; the buffer is
-    /// overwritten in place. Returns the total `geom_last.out` count (which may
-    /// exceed the capacity), or -1 if the operator rejected the input.
+    /// be null). `space` is the coordinate-frame matrix in which `cent`, `axis`,
+    /// the rotation and `dvec` are interpreted: a `*const f32` to 16 contiguous
+    /// floats in Blender's `float[4][4]` column-major order
+    /// (`space[col * 4 + row]`). Pass null for world/identity space, which
+    /// reproduces a plain world-space spin. The operator's `geom_last.out` slot
+    /// is written into `out_geom_last` up to `out_geom_last_cap` entries; the
+    /// buffer is overwritten in place. Returns the total `geom_last.out` count
+    /// (which may exceed the capacity), or -1 if the operator rejected the input.
     pub fn bms_spin(
         bm: *mut BMesh,
         geom: *mut *mut BMHeader,
@@ -577,6 +581,7 @@ unsafe extern "C" {
         use_merge: bool,
         use_normal_flip: bool,
         use_duplicate: bool,
+        space: *const f32,
         out_geom_last: *mut *mut BMHeader,
         out_geom_last_cap: c_int,
     ) -> c_int;

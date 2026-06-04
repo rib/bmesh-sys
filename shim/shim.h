@@ -275,7 +275,11 @@ extern "C"
     /* a pure rotation). With `use_merge` and a full 360 degree sweep the first   */
     /* and last rings are welded. `use_normal_flip` reverses the generated face   */
     /* winding; `use_duplicate` copies the input geometry per step instead of     */
-    /* extruding it. `cent`, `axis` and `dvec` are 3-float vectors. The           */
+    /* extruding it. `cent`, `axis` and `dvec` are 3-float vectors. `space` is a  */
+    /* 4x4 coordinate-frame matrix in which `cent`, `axis`, the rotation and      */
+    /* `dvec` are interpreted; it is 16 contiguous floats in Blender's            */
+    /* `float[4][4]` column-major order (`space[col * 4 + row]`). Pass a null     */
+    /* `space` for world/identity space (matching a pure world-space spin). The   */
     /* operator's `geom_last.out` slot (the leading edge of the final step) is    */
     /* walked with a BM_ALL_NOLOOP iterator and written into `out_geom_last` up   */
     /* to `out_geom_last_cap` entries. Returns the total `geom_last.out` count    */
@@ -290,6 +294,7 @@ extern "C"
                  bool use_merge,
                  bool use_normal_flip,
                  bool use_duplicate,
+                 const float *space,
                  BMHeader **out_geom_last, int out_geom_last_cap);
 
     /* Inset a region of faces. Marks each input face with BM_ELEM_TAG, then

@@ -22,6 +22,7 @@
 #include "BKE_customdata.hh"
 #include "BLI_heap.h"
 #include "BLI_math_geom.h"
+#include "BLI_math_matrix.h"
 #include "BLI_math_vector.h"
 #include "BLI_memarena.h"
 #include "BLI_polyfill_2d.h"
@@ -1559,7 +1560,11 @@ extern "C"
      * Drives BMesh's `spin` operator end-to-end. The input geometry is passed
      * via the `geom` element buffer (%eb); `cent`, `axis` and `dvec` are
      * forwarded as %v vectors (a null `dvec` becomes a zero translation). The
-     * operator's `space` MAT slot is left at its identity default. The
+     * `space` argument is the operator's MAT input slot: a 4x4 coordinate-frame
+     * matrix in which `cent`, `axis`, the rotation and `dvec` are all
+     * interpreted. It is laid out as Blender's `float[4][4]`, i.e. 16 contiguous
+     * floats in column-major order (`space[col * 4 + row]`). A null pointer
+     * leaves the slot at its identity default, reproducing world-space spin. The
      * `geom_last.out` element buffer is walked with a BMOIter restricted to
      * BM_ALL_NOLOOP and written into `out_geom_last` up to `out_geom_last_cap`
      * entries; its full count is the return value (which may exceed the cap),
@@ -1575,6 +1580,7 @@ extern "C"
                  bool use_merge,
                  bool use_normal_flip,
                  bool use_duplicate,
+                 const float *space,
                  BMHeader **out_geom_last, int out_geom_last_cap)
     {
         using namespace blender;
@@ -1582,18 +1588,23 @@ extern "C"
         const float zero_vec[3] = {0.0f, 0.0f, 0.0f};
         const float *dvec_arg = dvec ? dvec : zero_vec;
 
+        float identity_mat[4][4];
+        unit_m4(identity_mat);
+        const float *space_arg = space ? space : &identity_mat[0][0];
+
         BMOperator op;
         if (!BMO_op_initf(bm,
                           &op,
                           BMO_FLAG_DEFAULTS,
-                          "spin geom=%eb cent=%v axis=%v dvec=%v angle=%f steps=%i "
-                          "use_merge=%b use_normal_flip=%b use_duplicate=%b",
+                          "spin geom=%eb cent=%v axis=%v dvec=%v angle=%f space=%m4 "
+                          "steps=%i use_merge=%b use_normal_flip=%b use_duplicate=%b",
                           geom,
                           geom_len,
                           cent,
                           axis,
                           dvec_arg,
                           angle,
+                          space_arg,
                           steps,
                           use_merge,
                           use_normal_flip,
