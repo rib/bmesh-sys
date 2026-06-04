@@ -821,6 +821,31 @@ extern "C"
                        const float *space,
                        bool use_shapekey);
 
+    /* Invoke BMesh's `smooth_vert` operator: relax each input vertex toward
+     * the unweighted average of its connected neighbours (the other endpoint
+     * of every incident edge), blended from its original position by
+     * `factor`. A single double-buffered pass: every target is computed
+     * against the input positions and applied afterwards, so the result is
+     * order-independent.
+     *   - `verts` / `verts_len` fill the `verts=%eb` element buffer in-slot.
+     *   - `factor` sets the `factor` float in-slot (lerp original->average).
+     *   - `mirror_clip_x/y/z` set the matching bool in-slots; a vert whose
+     *     original coordinate on that axis is within `clip_dist` of 0 has its
+     *     target coordinate on that axis snapped to 0.
+     *   - `clip_dist` sets the `clip_dist` float in-slot (the clip band).
+     *   - `use_axis_x/y/z` set the matching bool in-slots; only enabled-axis
+     *     coordinates of the target are written back.
+     *
+     * The operator has no output slot; vertex positions are mutated in place.
+     * Element pointers in `verts` must remain valid for the duration of the
+     * call. */
+    void bms_smooth_vert(BMesh *bm,
+                         BMVert **verts, int verts_len,
+                         float factor,
+                         bool mirror_clip_x, bool mirror_clip_y, bool mirror_clip_z,
+                         float clip_dist,
+                         bool use_axis_x, bool use_axis_y, bool use_axis_z);
+
     /* Invoke BMesh's `symmetrize` operator: bisect `geom` along an
      * axis-aligned plane, clear the named half, then mirror the surviving
      * half across the plane and weld the duplicated geometry onto the

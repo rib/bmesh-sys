@@ -1630,6 +1630,39 @@ unsafe extern "C" {
         use_shapekey: bool,
     );
 
+    /// Invoke BMesh's `smooth_vert` operator: relax each input vertex toward
+    /// the unweighted average of its connected neighbours (the other endpoint
+    /// of every incident edge), blended from its original position by
+    /// `factor`. A single double-buffered pass makes the result
+    /// order-independent.
+    ///
+    /// `verts` (length `verts_len`) is the vertex buffer fed to the
+    /// operator's `verts` in-slot; it may be null with `verts_len` `0`, in
+    /// which case the call is a no-op. Element pointers must remain valid for
+    /// the duration of the call.
+    ///
+    /// `factor` is the lerp amount from each vertex's original position toward
+    /// the neighbour average. `mirror_clip_x/y/z`, when `true`, snap the
+    /// target coordinate on that axis to 0 for any vertex whose original
+    /// coordinate on that axis lies within `clip_dist` of 0. `use_axis_x/y/z`
+    /// gate write-back: only enabled-axis coordinates of the target are
+    /// applied.
+    ///
+    /// The operator has no output; vertex positions are mutated in place.
+    pub fn bms_smooth_vert(
+        bm: *mut BMesh,
+        verts: *mut *mut BMVert,
+        verts_len: c_int,
+        factor: f32,
+        mirror_clip_x: bool,
+        mirror_clip_y: bool,
+        mirror_clip_z: bool,
+        clip_dist: f32,
+        use_axis_x: bool,
+        use_axis_y: bool,
+        use_axis_z: bool,
+    );
+
     /// Invoke BMesh's `symmetrize` operator: bisect `geom` along an
     /// axis-aligned plane, clear the half selected by `direction`, then
     /// mirror the surviving half across the plane and weld the duplicated

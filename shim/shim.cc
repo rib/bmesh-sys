@@ -3159,6 +3159,45 @@ extern "C"
         BMO_op_finish(bm, &op);
     }
 
+    /* Invoke BMesh's `smooth_vert` operator: relax each input vertex toward
+     * the unweighted average of its connected neighbours. See shim.h for the
+     * slot mapping, the clipping behaviour, and the per-axis masking. All
+     * slots are settable directly in the BMO_op_initf format string, so no
+     * separate BMO_slot_*_set calls are needed. */
+    void bms_smooth_vert(BMesh *bm,
+                         BMVert **verts, int verts_len,
+                         float factor,
+                         bool mirror_clip_x, bool mirror_clip_y, bool mirror_clip_z,
+                         float clip_dist,
+                         bool use_axis_x, bool use_axis_y, bool use_axis_z)
+    {
+        using namespace blender;
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "smooth_vert verts=%eb factor=%f "
+                          "mirror_clip_x=%b mirror_clip_y=%b mirror_clip_z=%b "
+                          "clip_dist=%f "
+                          "use_axis_x=%b use_axis_y=%b use_axis_z=%b",
+                          verts,
+                          verts_len,
+                          factor,
+                          mirror_clip_x,
+                          mirror_clip_y,
+                          mirror_clip_z,
+                          clip_dist,
+                          use_axis_x,
+                          use_axis_y,
+                          use_axis_z))
+        {
+            return;
+        }
+
+        BMO_op_exec(bm, &op);
+        BMO_op_finish(bm, &op);
+    }
+
     /* Invoke BMesh's `symmetrize` operator: bisect `geom` along the plane
      * selected by `direction`, keep the named half, mirror it across the
      * plane, and weld at the seam within `dist`. See shim.h for the slot
