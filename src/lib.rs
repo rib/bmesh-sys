@@ -693,6 +693,18 @@ unsafe extern "C" {
         use_boundary_tear: bool,
     ) -> bool;
 
+    /// Invoke BMesh's `unsubdivide` BMOP on the supplied vertex set,
+    /// coarsening grid topology by `iterations` passes. The operator emits
+    /// no output slot, so this only reports whether the op ran.
+    ///
+    /// Returns false if the operator rejected the input.
+    pub fn bms_unsubdivide(
+        bm: *mut BMesh,
+        verts: *mut *mut BMVert,
+        verts_len: c_int,
+        iterations: c_int,
+    ) -> bool;
+
     /// Invoke BMesh's `dissolve_edges` BMOP on the supplied edge set. Every
     /// BMOP slot parameter is forwarded explicitly:
     ///

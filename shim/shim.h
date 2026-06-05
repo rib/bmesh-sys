@@ -396,6 +396,19 @@ extern "C"
                             bool use_face_split,
                             bool use_boundary_tear);
 
+    /* Invoke BMesh's `unsubdivide` operator on the supplied vertex set.
+     * Coarsens grid topology by collapsing it `iterations` times. Exposes
+     * the BMOP slot parameter explicitly:
+     *
+     *   - `iterations` — number of unsubdivision passes to apply.
+     *
+     * The operator emits no output slot, so the shim only reports whether
+     * the op ran. Returns true on success, false if BMO_op_initf rejected
+     * the input. */
+    bool bms_unsubdivide(BMesh *bm,
+                         BMVert **verts, int verts_len,
+                         int iterations);
+
     /* Invoke BMesh's `dissolve_edges` operator on the supplied edge set.
      * Exposes every BMOP slot parameter explicitly:
      *

@@ -1873,6 +1873,26 @@ extern "C"
         return true;
     }
 
+    bool bms_unsubdivide(BMesh *bm,
+                         BMVert **verts, int verts_len,
+                         int iterations)
+    {
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "unsubdivide verts=%eb iterations=%i",
+                          reinterpret_cast<BMHeader **>(verts),
+                          verts_len,
+                          iterations))
+        {
+            return false;
+        }
+        BMO_op_exec(bm, &op);
+        BMO_op_finish(bm, &op);
+        return true;
+    }
+
     bool bms_dissolve_edges(BMesh *bm,
                             BMEdge **edges, int edges_len,
                             bool use_verts,
