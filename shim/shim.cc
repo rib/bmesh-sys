@@ -2369,6 +2369,38 @@ extern "C"
         return true;
     }
 
+    /* ---- Subdivide edge-ring (BMesh operator: subdivide_edgering) ---- */
+
+    bool bms_subdivide_edgering(BMesh *bm,
+                                BMEdge **edges, int edges_len,
+                                int cuts,
+                                int interp_mode,
+                                float smooth,
+                                int profile_shape,
+                                float profile_shape_factor)
+    {
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "subdivide_edgering edges=%eb interp_mode=%i "
+                          "smooth=%f cuts=%i profile_shape=%i "
+                          "profile_shape_factor=%f",
+                          reinterpret_cast<BMHeader **>(edges),
+                          edges_len,
+                          interp_mode,
+                          double(smooth),
+                          cuts,
+                          profile_shape,
+                          double(profile_shape_factor)))
+        {
+            return false;
+        }
+        BMO_op_exec(bm, &op);
+        BMO_op_finish(bm, &op);
+        return true;
+    }
+
     /* ---- Bisect edges (BMesh operator: bisect_edges) ---- */
 
     bool bms_bisect_edges(BMesh *bm,

@@ -1090,6 +1090,34 @@ unsafe extern "C" {
         use_sphere: bool,
     ) -> bool;
 
+    /// Invoke BMesh's `subdivide_edgering` BMOP on the supplied edge set. The
+    /// edge-ring is subdivided across its connecting faces, inserting `cuts`
+    /// new loops and re-filling the spans with interpolated geometry. The mesh
+    /// is mutated in place; no output geometry is captured.
+    ///
+    /// - `edges` — the edge-ring to subdivide. The pointer may be null only
+    ///   when `edges_len == 0`, in which case nothing is subdivided.
+    /// - `cuts` — number of new loops inserted across the ring.
+    /// - `interp_mode` — interpolation method for the new geometry; one of the
+    ///   `BMS_RING_INTERP_*` constants below.
+    /// - `smooth` — smoothing factor applied to the new loops.
+    /// - `profile_shape` — falloff curve shaping the inserted profile; one of
+    ///   the `BMS_SUBD_FALLOFF_*` constants.
+    /// - `profile_shape_factor` — how far intermediary new edges are
+    ///   shrunk/expanded along the profile.
+    ///
+    /// Returns false if the operator rejected the input.
+    pub fn bms_subdivide_edgering(
+        bm: *mut BMesh,
+        edges: *mut *mut BMEdge,
+        edges_len: c_int,
+        cuts: c_int,
+        interp_mode: c_int,
+        smooth: f32,
+        profile_shape: c_int,
+        profile_shape_factor: f32,
+    ) -> bool;
+
     /// Invoke BMesh's `bisect_edges` BMOP on the supplied edge set. This is
     /// the pure per-edge midpoint-split phase: each input edge is split into
     /// `cuts` evenly-spaced segments, introducing `cuts` two-valence vertices
@@ -1938,6 +1966,14 @@ pub const BMS_SUBD_FALLOFF_ROOT: c_int = 2;
 pub const BMS_SUBD_FALLOFF_SHARP: c_int = 3;
 pub const BMS_SUBD_FALLOFF_LIN: c_int = 4;
 pub const BMS_SUBD_FALLOFF_INVSQUARE: c_int = 7;
+
+// ---- Interpolation modes for `bms_subdivide_edgering` ----
+//
+// Values matching BMesh's edge-ring interpolation enum, selecting how the
+// geometry inserted across the ring is shaped.
+pub const BMS_RING_INTERP_LINEAR: c_int = 0;
+pub const BMS_RING_INTERP_PATH: c_int = 1;
+pub const BMS_RING_INTERP_SURFACE: c_int = 2;
 
 // ---- Counts ----
 

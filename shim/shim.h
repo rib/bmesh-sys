@@ -1160,6 +1160,43 @@ extern "C"
                              bool use_only_quads,
                              bool use_sphere);
 
+    /* Invoke BMesh's `subdivide_edgering` operator on the supplied edge set.
+     * Takes an edge-ring and subdivides it across the connecting faces,
+     * inserting `cuts` new loops and re-filling with interpolated geometry.
+     *
+     * Parameters map 1:1 onto the operator's slots:
+     *
+     *   - `edges`                — the edge-ring to subdivide. The buffer may
+     *                              be null only when `edges_len == 0`, a no-op.
+     *   - `cuts`                 — number of new loops inserted across the ring.
+     *   - `interp_mode`          — interpolation method for the new geometry;
+     *                              one of the BMS_RING_INTERP_* values below.
+     *   - `smooth`               — smoothing factor applied to the new loops.
+     *   - `profile_shape`        — falloff curve shaping the inserted profile;
+     *                              one of the BMS_SUBD_FALLOFF_* values above.
+     *   - `profile_shape_factor` — how far intermediary new edges are
+     *                              shrunk/expanded along the profile.
+     *
+     * Interpolation-mode values (matching BMesh's edge-ring interp enum):
+     *   BMS_RING_INTERP_LINEAR  = 0
+     *   BMS_RING_INTERP_PATH    = 1
+     *   BMS_RING_INTERP_SURFACE = 2
+     *
+     * Returns true on success, false if BMO_op_initf rejected the input. */
+    enum BMS_RingInterpMode
+    {
+        BMS_RING_INTERP_LINEAR = 0,
+        BMS_RING_INTERP_PATH = 1,
+        BMS_RING_INTERP_SURFACE = 2,
+    };
+    bool bms_subdivide_edgering(BMesh *bm,
+                                BMEdge **edges, int edges_len,
+                                int cuts,
+                                int interp_mode,
+                                float smooth,
+                                int profile_shape,
+                                float profile_shape_factor);
+
     /* Invoke BMesh's `bisect_edges` operator on the supplied edge set. This
      * is the pure per-edge midpoint-split phase: each input edge is split into
      * `cuts` evenly-spaced segments, introducing `cuts` two-valence vertices
