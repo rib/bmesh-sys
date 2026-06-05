@@ -88,17 +88,58 @@ namespace blender
         return 1.0f;
     }
 
-    /* BKE_curve_forward_diff_bezier — bezier-curve forward-difference helper
-     * from BKE_curve.cc. Referenced by bmo_subdivide_edgering.cc for smooth
-     * subdivide. Stub to no-op (the smooth-subdivide path doesn't need to be
-     * exact for our A/B tests; linear is fine). */
-    void BKE_curve_forward_diff_bezier(float /*q0*/,
-                                       float /*q1*/,
-                                       float /*q2*/,
-                                       float /*q3*/,
-                                       float * /*p*/,
-                                       int /*it*/,
-                                       int /*stride*/) {}
+    /* BKE_curve_forward_diff_bezier — cubic-Bezier forward-difference sampler
+     * for one scalar component (q0..q3 are the four control values).
+     *
+     * Writes `it + 1` evenly-parameterised samples at t = 0, 1/it, …, 1 into
+     * the float array beginning at `p`, advancing `stride` BYTES between
+     * successive writes. Uses the standard forward-difference recurrence so the
+     * inner loop is O(it) additions rather than a per-sample cubic evaluation.
+     *
+     * For the cubic c(t) = q0(1-t)^3 + 3q1 t(1-t)^2 + 3q2 t^2(1-t) + q3 t^3
+     * sampled at step h = 1/it, the initial value and its three forward
+     * differences are:
+     *   f   = q0
+     *   df  = 3h(q1 - q0) + 3h^2(q0 - 2q1 + q2) + h^3(3q1 - 3q2 + q3 - q0)
+     *   d2f = 6h^2(q0 - 2q1 + q2) + 6h^3(3q1 - 3q2 + q3 - q0)
+     *   d3f = 6h^3(3q1 - 3q2 + q3 - q0)
+     * Stepping f += df; df += d2f; d2f += d3f advances by one h each iteration.
+     *
+     * Sample 0 is exactly q0; the it-th (final) sample is exactly q3 up to
+     * floating-point rounding. */
+    void BKE_curve_forward_diff_bezier(
+        float q0, float q1, float q2, float q3, float *p, int it, int stride)
+    {
+        if (it <= 0) {
+            if (it == 0 && p != nullptr) {
+                *p = q0;
+            }
+            return;
+        }
+
+        const float h = 1.0f / static_cast<float>(it);
+        const float h2 = h * h;
+        const float h3 = h2 * h;
+
+        const float c0 = q0;
+        const float c1 = 3.0f * (q1 - q0);
+        const float c2 = 3.0f * (q0 - 2.0f * q1 + q2);
+        const float c3 = -q0 + 3.0f * q1 - 3.0f * q2 + q3;
+
+        float f = c0;
+        float df = c1 * h + c2 * h2 + c3 * h3;
+        float d2f = 2.0f * c2 * h2 + 6.0f * c3 * h3;
+        float d3f = 6.0f * c3 * h3;
+
+        char *out = reinterpret_cast<char *>(p);
+        for (int i = 0; i <= it; i++) {
+            *reinterpret_cast<float *>(out) = f;
+            out += stride;
+            f += df;
+            df += d2f;
+            d2f += d3f;
+        }
+    }
 
     /* BKE_curveprofile_init — initialises a custom CurveProfile (CD_FLAG-style
      * lookup table for the bevel custom-profile path). Referenced from
