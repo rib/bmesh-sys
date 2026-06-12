@@ -9,6 +9,7 @@
 #define BMESH_SYS_SHIM_H
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -1709,6 +1710,47 @@ extern "C"
     /* Release the callee allocation held by a `BmsMergeTrace` and reset it to
      * empty. Safe to call on a zero-initialised or already-freed trace. */
     void bms_merge_trace_free(BmsMergeTrace *out);
+
+    /* ---- Whole-mesh traversal micro-workloads ---- */
+    /*
+     * Each function runs a complete read-only traversal natively inside the
+     * shim, so a single FFI crossing covers the whole walk and timing it
+     * measures BMesh's own iteration cost rather than per-element call
+     * overhead. None of them modify the mesh.
+     */
+
+    /* For every vertex, walk its disk cycle (the per-vertex cycle of
+     * incident edges) and count the edges visited; returns the total summed
+     * over all vertices. Since every edge appears in both endpoints' disks,
+     * this equals 2 * totedge. */
+    uint64_t bms_bench_disk_walk_sum(BMesh *bm);
+
+    /* For every edge, walk its radial cycle (the per-edge cycle of incident
+     * face loops) and count the loops visited; returns the total summed over
+     * all edges. Since every loop is radial to exactly one edge, this equals
+     * totloop. */
+    uint64_t bms_bench_radial_walk_sum(BMesh *bm);
+
+    /* Sum co[0] + co[1] + co[2] over every vertex, accumulated in double.
+     * A whole-mesh read checksum whose result depends on every coordinate,
+     * making it a convenient optimisation barrier for timed reads. */
+    double bms_bench_vert_position_sum(BMesh *bm);
+
+    /* ---- Guarded-allocator bookkeeping ---- */
+    /*
+     * BMesh routes its allocations through the vendored guarded allocator
+     * (MEM_* / BLI_mempool on top of MEM_*), so reading these counters
+     * before and after an operation observes its allocation delta. The
+     * counters are process-global and cover every MEM_* user in the binary.
+     */
+
+    /* Number of memory blocks currently live in the guarded allocator
+     * (MEM_get_memory_blocks_in_use). */
+    unsigned int bms_mem_blocks_in_use(void);
+
+    /* Total bytes currently live in the guarded allocator
+     * (MEM_get_memory_in_use). */
+    size_t bms_mem_in_use(void);
 
 #ifdef __cplusplus
 }

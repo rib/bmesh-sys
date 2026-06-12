@@ -6,7 +6,7 @@
 
 #![allow(non_camel_case_types, non_snake_case)]
 
-use std::os::raw::c_int;
+use std::os::raw::{c_int, c_uint};
 
 // ---- Opaque element types ----
 //
@@ -2302,6 +2302,49 @@ unsafe extern "C" {
     /// [`bms_inset_region_merge_trace`], or zero-initialised. Safe to call
     /// twice (idempotent).
     pub fn bms_merge_trace_free(out: *mut BmsMergeTrace);
+}
+
+// ---- Whole-mesh traversal micro-workloads ----
+//
+// Each function runs a complete read-only traversal natively inside the
+// shim, so a single FFI crossing covers the whole walk and timing it
+// measures BMesh's own iteration cost rather than per-element call
+// overhead.
+
+unsafe extern "C" {
+    /// For every vertex, walk its disk cycle (the per-vertex cycle of
+    /// incident edges) and count the edges visited; returns the total
+    /// summed over all vertices (`2 * totedge`). The mesh is not modified.
+    /// `bm` must be a valid mesh.
+    pub fn bms_bench_disk_walk_sum(bm: *mut BMesh) -> u64;
+
+    /// For every edge, walk its radial cycle (the per-edge cycle of
+    /// incident face loops) and count the loops visited; returns the total
+    /// summed over all edges (`totloop`). The mesh is not modified. `bm`
+    /// must be a valid mesh.
+    pub fn bms_bench_radial_walk_sum(bm: *mut BMesh) -> u64;
+
+    /// Sum `co[0] + co[1] + co[2]` over every vertex, accumulated in
+    /// `f64`. A whole-mesh read checksum whose result depends on every
+    /// coordinate, making it a convenient optimisation barrier for timed
+    /// reads. The mesh is not modified. `bm` must be a valid mesh.
+    pub fn bms_bench_vert_position_sum(bm: *mut BMesh) -> f64;
+}
+
+// ---- Guarded-allocator bookkeeping ----
+//
+// BMesh routes its allocations through the vendored guarded allocator
+// (MEM_* / BLI_mempool on top of MEM_*), so reading these counters before
+// and after an operation observes its allocation delta. The counters are
+// process-global and cover every MEM_* user in the binary; concurrent
+// allocator activity on other threads shows up in the deltas.
+
+unsafe extern "C" {
+    /// Number of memory blocks currently live in the guarded allocator.
+    pub fn bms_mem_blocks_in_use() -> c_uint;
+
+    /// Total bytes currently live in the guarded allocator.
+    pub fn bms_mem_in_use() -> usize;
 }
 
 pub mod owned;

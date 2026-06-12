@@ -33,6 +33,7 @@
 #include "MEM_guardedalloc.h"
 
 #include <array>
+#include <cstdint>
 #include <cstring>
 
 using namespace blender; // NOLINT(google-build-using-namespace)
@@ -3676,6 +3677,73 @@ extern "C"
 
         BMO_op_finish(bm, &op);
         return n;
+    }
+
+    /* ---- Whole-mesh traversal micro-workloads ---- */
+
+    /* Count the edges in every vertex's disk cycle; total = 2 * totedge. */
+    uint64_t bms_bench_disk_walk_sum(BMesh *bm)
+    {
+        uint64_t total = 0;
+        BMVert *v;
+        BMIter v_iter;
+        BM_ITER_MESH(v, &v_iter, bm, BM_VERTS_OF_MESH)
+        {
+            BMEdge *e;
+            BMIter e_iter;
+            BM_ITER_ELEM(e, &e_iter, v, BM_EDGES_OF_VERT)
+            {
+                (void)e;
+                total++;
+            }
+        }
+        return total;
+    }
+
+    /* Count the loops in every edge's radial cycle; total = totloop. */
+    uint64_t bms_bench_radial_walk_sum(BMesh *bm)
+    {
+        uint64_t total = 0;
+        BMEdge *e;
+        BMIter e_iter;
+        BM_ITER_MESH(e, &e_iter, bm, BM_EDGES_OF_MESH)
+        {
+            BMLoop *l;
+            BMIter l_iter;
+            BM_ITER_ELEM(l, &l_iter, e, BM_LOOPS_OF_EDGE)
+            {
+                (void)l;
+                total++;
+            }
+        }
+        return total;
+    }
+
+    /* Whole-mesh coordinate checksum, accumulated in double. */
+    double bms_bench_vert_position_sum(BMesh *bm)
+    {
+        double sum = 0.0;
+        BMVert *v;
+        BMIter iter;
+        BM_ITER_MESH(v, &iter, bm, BM_VERTS_OF_MESH)
+        {
+            sum += double(v->co[0]) + double(v->co[1]) + double(v->co[2]);
+        }
+        return sum;
+    }
+
+    /* ---- Guarded-allocator bookkeeping ---- */
+    /* MEM_get_memory_* are function pointers (the guarded allocator's
+     * dispatch table), hence the explicit call-through wrappers. */
+
+    unsigned int bms_mem_blocks_in_use(void)
+    {
+        return MEM_get_memory_blocks_in_use();
+    }
+
+    size_t bms_mem_in_use(void)
+    {
+        return MEM_get_memory_in_use();
     }
 
 } /* extern "C" */
