@@ -42,6 +42,9 @@ extern "C"
     void bms_vert_select_set(BMesh *bm, BMVert *v, bool select);
     void bms_vert_co(const BMVert *v, float out[3]);
     void bms_vert_no(const BMVert *v, float out[3]);
+    /* Read an edge's two endpoint verts (`e->v1` / `e->v2`) into the
+     * caller-supplied out-pointers. */
+    void bms_edge_verts(BMEdge *e, BMVert **out_v1, BMVert **out_v2);
     int bms_elem_htype(const void *elem);
     int bms_elem_hflag(const void *elem);
     int bms_elem_api_flag(const void *elem);

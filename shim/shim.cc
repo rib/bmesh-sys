@@ -90,6 +90,13 @@ extern "C"
         out[2] = v->no[2];
     }
 
+    /* BMEdge.v1 / BMEdge.v2 are public fields; expose them directly. */
+    void bms_edge_verts(BMEdge *e, BMVert **out_v1, BMVert **out_v2)
+    {
+        *out_v1 = e->v1;
+        *out_v2 = e->v2;
+    }
+
     /* BMHeader is the first field of every BM element type, so a type-erased
      * element pointer can be read as a BMHeader directly. */
     int bms_elem_htype(const void *elem)

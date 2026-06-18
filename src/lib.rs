@@ -87,6 +87,10 @@ unsafe extern "C" {
     pub fn bms_vert_co(v: *const BMVert, out: *mut f32);
     /// Copy the vertex normal into `out` (3 floats).
     pub fn bms_vert_no(v: *const BMVert, out: *mut f32);
+    /// Read an edge's two endpoint verts into `out_v1` / `out_v2`. Both
+    /// out-pointers must be non-null and writable; each receives the
+    /// corresponding endpoint (`e->v1`, `e->v2`).
+    pub fn bms_edge_verts(e: *mut BMEdge, out_v1: *mut *mut BMVert, out_v2: *mut *mut BMVert);
     /// `head.htype` — element geometric type (`BM_VERT=1`, `BM_EDGE=2`, …).
     pub fn bms_elem_htype(elem: *const std::ffi::c_void) -> c_int;
     /// `head.hflag` — public element flags (e.g. `BM_ELEM_SELECT = 1<<0`).
@@ -2401,3 +2405,42 @@ unsafe extern "C" {
 }
 
 pub mod owned;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn edge_verts_reads_endpoints() {
+        unsafe {
+            let bm = bms_mesh_create();
+            assert!(!bm.is_null());
+
+            let co_a = [1.0f32, 2.0, 3.0];
+            let co_b = [4.0f32, 5.0, 6.0];
+            let v1 = bms_vert_create(bm, co_a.as_ptr());
+            let v2 = bms_vert_create(bm, co_b.as_ptr());
+            assert!(!v1.is_null());
+            assert!(!v2.is_null());
+
+            let e = bms_edge_create(bm, v1, v2, false);
+            assert!(!e.is_null());
+
+            let mut out_v1: *mut BMVert = core::ptr::null_mut();
+            let mut out_v2: *mut BMVert = core::ptr::null_mut();
+            bms_edge_verts(e, &mut out_v1, &mut out_v2);
+
+            assert_eq!(out_v1, v1);
+            assert_eq!(out_v2, v2);
+
+            let mut read_a = [0.0f32; 3];
+            let mut read_b = [0.0f32; 3];
+            bms_vert_co(out_v1, read_a.as_mut_ptr());
+            bms_vert_co(out_v2, read_b.as_mut_ptr());
+            assert_eq!(read_a, co_a);
+            assert_eq!(read_b, co_b);
+
+            bms_mesh_free(bm);
+        }
+    }
+}
