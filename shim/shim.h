@@ -468,6 +468,54 @@ extern "C"
                                bool use_verts,
                                BMFace **out_buf, int out_cap);
 
+    /* Maps to BMesh's `triangle_fill` operator. Triangulates the planar
+     * region bounded by the input `edges` loop, creating fill faces (and
+     * the interior edges between them) but no vertices, and without
+     * deleting any input edge. Exposes both BMOP bool slots explicitly:
+     *
+     *   - `use_beauty`   — run the beautify pass that rotates fill edges
+     *                      toward a better (more equilateral) triangulation.
+     *   - `use_dissolve` — join the fill's interior edges, merging the
+     *                      result back into n-gons.
+     *
+     * `normal` is the operator's `normal` VEC slot: a pointer to 3 floats
+     * giving the fill plane normal. A null pointer (or an all-zero vector)
+     * selects the operator's default behaviour of deriving the normal from
+     * the input edge loop.
+     *
+     * Returns true on success, false if BMO_op_initf rejected the input. */
+    bool bms_triangle_fill(BMesh *bm,
+                           BMEdge **edges, int edges_len,
+                           bool use_beauty,
+                           bool use_dissolve,
+                           const float *normal);
+
+    /* Capturing variant of `bms_triangle_fill`.
+     *
+     * Runs the same `triangle_fill` BMOP but also copies the operator's
+     * `geom.out` slot — the newly-created fill edges and faces — into the
+     * caller-supplied buffer `out_buf` of capacity `out_cap` element slots.
+     * Each written pointer is a `BMHeader *`; the caller distinguishes
+     * edges from faces via the element's `htype`.
+     *
+     * Return value:
+     *   -1   on operator init failure (matches the `false` return of the
+     *        non-capturing variant).
+     *   >= 0 on success: the *total* number of new elements the slot
+     *        produced. Up to `min(total, out_cap)` pointers are written to
+     *        `out_buf` (in the slot's emit order). If the returned count
+     *        exceeds `out_cap`, the buffer was undersized.
+     *
+     * `out_buf` may be null only when `out_cap` is zero; in that case the
+     * function still runs the operator and returns the new-element count
+     * for sizing purposes. */
+    int bms_triangle_fill_out(BMesh *bm,
+                              BMEdge **edges, int edges_len,
+                              bool use_beauty,
+                              bool use_dissolve,
+                              const float *normal,
+                              BMHeader **out_buf, int out_cap);
+
     /* Maps to BMesh's `reverse_uvs` operator. Reverses the active UV
      * layer's per-loop float2 values around each input face — a pure
      * loop-customdata permutation with no topology change.

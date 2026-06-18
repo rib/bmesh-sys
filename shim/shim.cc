@@ -1970,6 +1970,79 @@ extern "C"
         return n;
     }
 
+    bool bms_triangle_fill(BMesh *bm,
+                           BMEdge **edges, int edges_len,
+                           bool use_beauty,
+                           bool use_dissolve,
+                           const float *normal)
+    {
+        const float zero_vec[3] = {0.0f, 0.0f, 0.0f};
+        const float *normal_arg = normal ? normal : zero_vec;
+
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "triangle_fill edges=%eb "
+                          "use_beauty=%b use_dissolve=%b normal=%v",
+                          reinterpret_cast<BMHeader **>(edges),
+                          edges_len,
+                          use_beauty,
+                          use_dissolve,
+                          normal_arg))
+        {
+            return false;
+        }
+        BMO_op_exec(bm, &op);
+        BMO_op_finish(bm, &op);
+        return true;
+    }
+
+    int bms_triangle_fill_out(BMesh *bm,
+                              BMEdge **edges, int edges_len,
+                              bool use_beauty,
+                              bool use_dissolve,
+                              const float *normal,
+                              BMHeader **out_buf, int out_cap)
+    {
+        const float zero_vec[3] = {0.0f, 0.0f, 0.0f};
+        const float *normal_arg = normal ? normal : zero_vec;
+
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "triangle_fill edges=%eb "
+                          "use_beauty=%b use_dissolve=%b normal=%v",
+                          reinterpret_cast<BMHeader **>(edges),
+                          edges_len,
+                          use_beauty,
+                          use_dissolve,
+                          normal_arg))
+        {
+            return -1;
+        }
+        BMO_op_exec(bm, &op);
+
+        int geom_count = 0;
+        {
+            BMOIter oiter;
+            BMHeader *ele = static_cast<BMHeader *>(
+                BMO_iter_new(&oiter, op.slots_out, "geom.out", BM_ALL_NOLOOP));
+            for (; ele; ele = static_cast<BMHeader *>(BMO_iter_step(&oiter)))
+            {
+                if (geom_count < out_cap)
+                {
+                    out_buf[geom_count] = ele;
+                }
+                geom_count++;
+            }
+        }
+
+        BMO_op_finish(bm, &op);
+        return geom_count;
+    }
+
     bool bms_reverse_uvs(BMesh *bm, BMFace **faces, int faces_len)
     {
         BMOperator op;

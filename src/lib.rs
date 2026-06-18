@@ -769,6 +769,59 @@ unsafe extern "C" {
         out_cap: c_int,
     ) -> c_int;
 
+    /// Invoke BMesh's `triangle_fill` BMOP on the supplied edge loop.
+    /// Triangulates the planar region bounded by `edges`, creating fill
+    /// faces and their interior edges (no new vertices) and deleting no
+    /// input edge. Both BMOP bool slots are forwarded explicitly:
+    ///
+    /// - `use_beauty` — run the beautify pass that rotates fill edges
+    ///   toward a more equilateral triangulation.
+    /// - `use_dissolve` — join the fill's interior edges back into n-gons.
+    ///
+    /// `normal` may be null. When non-null it must point to 3 `f32`
+    /// giving the fill plane normal; a null pointer (or an all-zero
+    /// vector) lets the operator derive the normal from the edge loop.
+    ///
+    /// `edges` points to an array of `edges_len` edge pointers belonging
+    /// to `bm`. Returns false if the operator rejected the input.
+    pub fn bms_triangle_fill(
+        bm: *mut BMesh,
+        edges: *mut *mut BMEdge,
+        edges_len: c_int,
+        use_beauty: bool,
+        use_dissolve: bool,
+        normal: *const f32,
+    ) -> bool;
+
+    /// Capturing variant of [`bms_triangle_fill`].
+    ///
+    /// Runs the same `triangle_fill` BMOP and additionally copies the
+    /// operator's `geom.out` slot — the newly-created fill edges and
+    /// faces — into the caller-supplied buffer `out_buf` of capacity
+    /// `out_cap` slots. Each written pointer is a `*mut BMHeader`; inspect
+    /// the element's `htype` to distinguish edges from faces.
+    ///
+    /// Return value:
+    /// - `-1` on operator init failure (mirrors the `false` return of
+    ///   the non-capturing variant).
+    /// - `>= 0` on success: the *total* number of new elements produced.
+    ///   Up to `min(total, out_cap)` pointers are written to `out_buf`
+    ///   in the slot's emit order; if `total > out_cap` the buffer was
+    ///   undersized.
+    ///
+    /// `out_buf` may be null only when `out_cap` is zero (size-probing
+    /// mode).
+    pub fn bms_triangle_fill_out(
+        bm: *mut BMesh,
+        edges: *mut *mut BMEdge,
+        edges_len: c_int,
+        use_beauty: bool,
+        use_dissolve: bool,
+        normal: *const f32,
+        out_buf: *mut *mut BMHeader,
+        out_cap: c_int,
+    ) -> c_int;
+
     /// Maps to BMesh's `reverse_uvs` operator: reverses the active UV
     /// layer's per-loop values around each input face (a pure
     /// loop-customdata permutation, no topology change).
