@@ -1187,6 +1187,31 @@ unsafe extern "C" {
         profile_shape_factor: f32,
     ) -> bool;
 
+    /// Capturing variant of [`bms_subdivide_edgering`].
+    ///
+    /// Runs the same `subdivide_edgering` BMOP and additionally copies
+    /// the operator's `faces.out` slot — the newly-created fill faces
+    /// (each subdivided strip quad becomes a column of `cuts + 1`
+    /// quads) — into the caller-supplied buffer `out_buf` of capacity
+    /// `out_cap` slots.
+    ///
+    /// Returns `-1` on init failure; otherwise the total slot count,
+    /// with up to `min(total, out_cap)` pointers written to `out_buf`
+    /// in emit order. `out_buf` may be null only when `out_cap` is
+    /// zero (size-probing mode).
+    pub fn bms_subdivide_edgering_out(
+        bm: *mut BMesh,
+        edges: *mut *mut BMEdge,
+        edges_len: c_int,
+        cuts: c_int,
+        interp_mode: c_int,
+        smooth: f32,
+        profile_shape: c_int,
+        profile_shape_factor: f32,
+        out_buf: *mut *mut BMFace,
+        out_cap: c_int,
+    ) -> c_int;
+
     /// Invoke BMesh's `bisect_edges` BMOP on the supplied edge set. This is
     /// the pure per-edge midpoint-split phase: each input edge is split into
     /// `cuts` evenly-spaced segments, introducing `cuts` two-valence vertices
@@ -2439,6 +2464,85 @@ mod tests {
             bms_vert_co(out_v2, read_b.as_mut_ptr());
             assert_eq!(read_a, co_a);
             assert_eq!(read_b, co_b);
+
+            bms_mesh_free(bm);
+        }
+    }
+
+    #[test]
+    fn subdivide_edgering_out_captures_fill_faces() {
+        unsafe {
+            let bm = bms_mesh_create();
+            assert!(!bm.is_null());
+
+            // Build a flat strip of two quads sharing a middle edge:
+            //
+            //   col0top --- col1top --- col2top
+            //     |   quad0   |   quad1   |
+            //   col0bot --- col1bot --- col2bot
+            //
+            // The three vertical edges (col0/col1/col2) form the edge-ring
+            // that `subdivide_edgering` subdivides.
+            let mut verts = [core::ptr::null_mut::<BMVert>(); 6];
+            let coords: [[f32; 3]; 6] = [
+                [0.0, 0.0, 0.0], // 0: col0bot
+                [0.0, 1.0, 0.0], // 1: col0top
+                [1.0, 0.0, 0.0], // 2: col1bot
+                [1.0, 1.0, 0.0], // 3: col1top
+                [2.0, 0.0, 0.0], // 4: col2bot
+                [2.0, 1.0, 0.0], // 5: col2top
+            ];
+            for (slot, co) in verts.iter_mut().zip(coords.iter()) {
+                *slot = bms_vert_create(bm, co.as_ptr());
+                assert!(!slot.is_null());
+            }
+
+            let quad0 = [verts[0], verts[2], verts[3], verts[1]];
+            let quad1 = [verts[2], verts[4], verts[5], verts[3]];
+            let f0 = bms_face_create_verts(bm, quad0.as_ptr(), 4, true);
+            let f1 = bms_face_create_verts(bm, quad1.as_ptr(), 4, true);
+            assert!(!f0.is_null());
+            assert!(!f1.is_null());
+
+            // The vertical rung edges form the ring.
+            let ring_edge_0 = bms_edge_exists(verts[0], verts[1]);
+            let ring_edge_1 = bms_edge_exists(verts[2], verts[3]);
+            let ring_edge_2 = bms_edge_exists(verts[4], verts[5]);
+            assert!(!ring_edge_0.is_null());
+            assert!(!ring_edge_1.is_null());
+            assert!(!ring_edge_2.is_null());
+
+            let mut ring_edges = [ring_edge_0, ring_edge_1, ring_edge_2];
+
+            let cuts = 2;
+            let mut out_buf = [core::ptr::null_mut::<BMFace>(); 16];
+            let count = bms_subdivide_edgering_out(
+                bm,
+                ring_edges.as_mut_ptr(),
+                ring_edges.len() as c_int,
+                cuts,
+                BMS_RING_INTERP_LINEAR,
+                1.0,
+                0,
+                0.0,
+                out_buf.as_mut_ptr(),
+                out_buf.len() as c_int,
+            );
+
+            // Each of the two strip quads is split into a column of
+            // `cuts + 1` quads, so the fill set has 2 * (cuts + 1) faces.
+            let expected = 2 * (cuts + 1);
+            assert_eq!(count, expected);
+
+            // Every captured pointer (within the copied prefix) is a
+            // distinct, non-null face.
+            let copied = (count as usize).min(out_buf.len());
+            for i in 0..copied {
+                assert!(!out_buf[i].is_null());
+                for j in (i + 1)..copied {
+                    assert_ne!(out_buf[i], out_buf[j]);
+                }
+            }
 
             bms_mesh_free(bm);
         }

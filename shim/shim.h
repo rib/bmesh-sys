@@ -1262,6 +1262,25 @@ extern "C"
                                 int profile_shape,
                                 float profile_shape_factor);
 
+    /* Capturing variant of `bms_subdivide_edgering`. Runs the same
+     * `subdivide_edgering` BMOP and additionally reads the operator's
+     * `faces.out` slot — the newly-created fill faces (each subdivided
+     * strip quad becomes a column of `cuts + 1` quads) — into the
+     * caller-provided `out_buf`.
+     *
+     * Up to `out_cap` `BMFace*` pointers are written into `out_buf`;
+     * the full slot length is returned regardless of `out_cap`, so a
+     * size-probe call may pass a null `out_buf` with `out_cap == 0`.
+     * Returns -1 if BMO_op_initf rejected the input. */
+    int bms_subdivide_edgering_out(BMesh *bm,
+                                   BMEdge **edges, int edges_len,
+                                   int cuts,
+                                   int interp_mode,
+                                   float smooth,
+                                   int profile_shape,
+                                   float profile_shape_factor,
+                                   BMFace **out_buf, int out_cap);
+
     /* Invoke BMesh's `bisect_edges` operator on the supplied edge set. This
      * is the pure per-edge midpoint-split phase: each input edge is split into
      * `cuts` evenly-spaced segments, introducing `cuts` two-valence vertices

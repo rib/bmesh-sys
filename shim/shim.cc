@@ -2502,6 +2502,47 @@ extern "C"
         return true;
     }
 
+    int bms_subdivide_edgering_out(BMesh *bm,
+                                   BMEdge **edges, int edges_len,
+                                   int cuts,
+                                   int interp_mode,
+                                   float smooth,
+                                   int profile_shape,
+                                   float profile_shape_factor,
+                                   BMFace **out_buf, int out_cap)
+    {
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "subdivide_edgering edges=%eb interp_mode=%i "
+                          "smooth=%f cuts=%i profile_shape=%i "
+                          "profile_shape_factor=%f",
+                          reinterpret_cast<BMHeader **>(edges),
+                          edges_len,
+                          interp_mode,
+                          double(smooth),
+                          cuts,
+                          profile_shape,
+                          double(profile_shape_factor)))
+        {
+            return -1;
+        }
+        BMO_op_exec(bm, &op);
+
+        BMOpSlot *slot = BMO_slot_get(op.slots_out, "faces.out");
+        const int n = slot->len;
+        const int n_copy = (n < out_cap) ? n : out_cap;
+        BMFace **slot_items = reinterpret_cast<BMFace **>(slot->data.buf);
+        for (int i = 0; i < n_copy; ++i)
+        {
+            out_buf[i] = slot_items[i];
+        }
+
+        BMO_op_finish(bm, &op);
+        return n;
+    }
+
     /* ---- Bisect edges (BMesh operator: bisect_edges) ---- */
 
     bool bms_bisect_edges(BMesh *bm,
