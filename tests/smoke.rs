@@ -112,6 +112,45 @@ fn customdata_float_layer_roundtrips() {
     assert_eq!(got, 1.5);
 }
 
+/// `bms_vert_normals_read` copies per-vertex normals in vertex-table order
+/// after a vertex-normal update, and reports the true vertex count so callers
+/// can detect a too-small buffer.
+#[test]
+fn vert_normals_read_after_update() {
+    let bm = BMeshOwned::new();
+    // A quad in the XY plane wound CCW: every vertex normal should be +Z.
+    let coords = [
+        [0.0, 0.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [1.0, 1.0, 0.0],
+        [0.0, 1.0, 0.0],
+    ];
+    let verts: Vec<_> = coords.iter().map(|&c| bm.add_vert(c)).collect();
+    // Safety: every pointer in `verts` came from this same mesh's add_vert.
+    let face = unsafe { bm.add_face(&verts) };
+    assert!(!face.is_null());
+
+    unsafe { bms_mesh_vert_normals_update(bm.raw()) };
+
+    let totvert = bm.totvert() as i32;
+    assert_eq!(totvert, 4);
+
+    let mut normals = vec![f32::NAN; (totvert * 3) as usize];
+    let written = unsafe { bms_vert_normals_read(bm.raw(), normals.as_mut_ptr(), normals.len() as i32) };
+    assert_eq!(written, totvert, "should report and write every vertex normal");
+
+    for n in normals.chunks_exact(3) {
+        assert!(n[0].abs() < 1e-6 && n[1].abs() < 1e-6, "expected an axis-aligned +Z normal, got {n:?}");
+        assert!((n[2] - 1.0).abs() < 1e-6, "expected +Z normal, got {n:?}");
+    }
+
+    // A buffer that is too small writes nothing but still reports the true count.
+    let mut sentinel = [42.0f32; 3];
+    let count = unsafe { bms_vert_normals_read(bm.raw(), sentinel.as_mut_ptr(), sentinel.len() as i32) };
+    assert_eq!(count, totvert, "true vertex count is reported even when truncated");
+    assert_eq!(sentinel, [42.0, 42.0, 42.0], "nothing written when capacity is insufficient");
+}
+
 /// Port of Blender's `BMeshCoreTest.BMVertCreate` C++ gtest
 /// (`source/blender/bmesh/tests/bmesh_core_test.cc`) onto the `bms_*` FFI.
 ///

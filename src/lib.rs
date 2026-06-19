@@ -2249,6 +2249,21 @@ unsafe extern "C" {
     /// correct even when face normals were stale on entry. `bm` must be a
     /// valid, non-null mesh pointer.
     pub fn bms_mesh_vert_normals_update(bm: *mut BMesh);
+
+    /// Copies each vertex's stored normal (`v->no`) into `out_vert_normals`
+    /// as 3 contiguous floats per vert, in the same vertex iteration order
+    /// as [`bms_snapshot`]'s position read-back. `out_cap` is the writable
+    /// float capacity and must be at least `3 * totvert`; if it is smaller
+    /// nothing is written. Does NOT recompute normals — call
+    /// [`bms_mesh_vert_normals_update`] first if they may be stale. Returns
+    /// the true vertex count, so a return value greater than `out_cap / 3`
+    /// signals truncation. `out_vert_normals` must be valid for `out_cap`
+    /// floats; `bm` must be a valid, non-null mesh pointer.
+    pub fn bms_vert_normals_read(
+        bm: *mut BMesh,
+        out_vert_normals: *mut f32,
+        out_cap: c_int,
+    ) -> c_int;
 }
 
 // ---- Customdata layer access ----

@@ -105,6 +105,15 @@ extern "C"
      * normals were stale on entry. */
     void bms_mesh_vert_normals_update(BMesh *bm);
 
+    /* Copy each vertex's stored normal (v->no) into out_vert_normals as
+     * 3 floats per vert, in vertex iteration order (the same order
+     * bms_snapshot writes vertex positions). out_cap is the writable float
+     * capacity and must be at least 3 * totvert. This does NOT recompute
+     * normals -- run bms_mesh_vert_normals_update first. Returns the true
+     * vertex count; when out_cap is too small nothing is written but the
+     * true count is still returned so callers can detect truncation. */
+    int bms_vert_normals_read(BMesh *bm, float *out_vert_normals, int out_cap);
+
     /* Destructively triangulate a single face in place. Wraps BMesh's
      * `BM_face_triangulate` along with the temporary MemArena (and, for
      * `MOD_TRIANGULATE_NGON_BEAUTY`, the BLI Heap) that it requires.

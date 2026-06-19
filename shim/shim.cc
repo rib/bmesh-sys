@@ -792,6 +792,32 @@ extern "C"
         }
     }
 
+    /* Copy each vertex's stored normal (v->no) into out_vert_normals as 3
+     * floats per vert, in BM_VERTS_OF_MESH iteration order (the same order
+     * bms_snapshot writes vertex positions). Does not recompute normals;
+     * the caller runs bms_mesh_vert_normals_update first. Returns the true
+     * vertex count. When out_cap is too small (< 3 * totvert) nothing is
+     * written and the true count is still returned so callers can detect
+     * truncation. */
+    int bms_vert_normals_read(BMesh *bm, float *out_vert_normals, int out_cap)
+    {
+        int totvert = bm->totvert;
+        if (out_cap < totvert * 3)
+            return totvert;
+
+        BMVert *v;
+        BMIter iter;
+        int vi = 0;
+        BM_ITER_MESH(v, &iter, bm, BM_VERTS_OF_MESH)
+        {
+            out_vert_normals[vi * 3 + 0] = v->no[0];
+            out_vert_normals[vi * 3 + 1] = v->no[1];
+            out_vert_normals[vi * 3 + 2] = v->no[2];
+            vi++;
+        }
+        return vi;
+    }
+
     /* ---- Customdata layer access ---- */
     /*
      * The bms_*_layer_add_* functions register a per-element CD layer on
