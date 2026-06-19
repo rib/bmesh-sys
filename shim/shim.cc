@@ -2470,6 +2470,99 @@ extern "C"
         return true;
     }
 
+    int bms_subdivide_core_out(BMesh *bm,
+                               BMEdge **edges, int edges_len,
+                               int cuts,
+                               float smooth,
+                               int smooth_falloff,
+                               bool use_smooth_even,
+                               float fractal,
+                               float along_normal,
+                               int seed,
+                               int quad_corner_type,
+                               bool use_grid_fill,
+                               bool use_single_edge,
+                               bool use_only_quads,
+                               bool use_sphere,
+                               BMHeader **out_split, int out_split_cap,
+                               int *r_split_len,
+                               BMHeader **out_inner, int out_inner_cap,
+                               int *r_inner_len,
+                               BMHeader **out_geom, int out_geom_cap,
+                               int *r_geom_len)
+    {
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "subdivide_edges edges=%eb cuts=%i "
+                          "smooth=%f smooth_falloff=%i use_smooth_even=%b "
+                          "fractal=%f along_normal=%f seed=%i "
+                          "quad_corner_type=%i use_grid_fill=%b "
+                          "use_single_edge=%b use_only_quads=%b "
+                          "use_sphere=%b",
+                          reinterpret_cast<BMHeader **>(edges),
+                          edges_len,
+                          cuts,
+                          double(smooth),
+                          smooth_falloff,
+                          use_smooth_even,
+                          double(fractal),
+                          double(along_normal),
+                          seed,
+                          quad_corner_type,
+                          use_grid_fill,
+                          use_single_edge,
+                          use_only_quads,
+                          use_sphere))
+        {
+            return -1;
+        }
+        BMO_op_exec(bm, &op);
+
+        BMOpSlot *split_slot = BMO_slot_get(op.slots_out, "geom_split.out");
+        const int split_n = split_slot->len;
+        const int split_copy = (split_n < out_split_cap) ? split_n : out_split_cap;
+        BMHeader **split_items = reinterpret_cast<BMHeader **>(split_slot->data.buf);
+        for (int i = 0; i < split_copy; ++i)
+        {
+            out_split[i] = split_items[i];
+        }
+        if (r_split_len)
+        {
+            *r_split_len = split_n;
+        }
+
+        BMOpSlot *inner_slot = BMO_slot_get(op.slots_out, "geom_inner.out");
+        const int inner_n = inner_slot->len;
+        const int inner_copy = (inner_n < out_inner_cap) ? inner_n : out_inner_cap;
+        BMHeader **inner_items = reinterpret_cast<BMHeader **>(inner_slot->data.buf);
+        for (int i = 0; i < inner_copy; ++i)
+        {
+            out_inner[i] = inner_items[i];
+        }
+        if (r_inner_len)
+        {
+            *r_inner_len = inner_n;
+        }
+
+        BMOpSlot *geom_slot = BMO_slot_get(op.slots_out, "geom.out");
+        const int geom_n = geom_slot->len;
+        const int geom_copy = (geom_n < out_geom_cap) ? geom_n : out_geom_cap;
+        BMHeader **geom_items = reinterpret_cast<BMHeader **>(geom_slot->data.buf);
+        for (int i = 0; i < geom_copy; ++i)
+        {
+            out_geom[i] = geom_items[i];
+        }
+        if (r_geom_len)
+        {
+            *r_geom_len = geom_n;
+        }
+
+        BMO_op_finish(bm, &op);
+        return 0;
+    }
+
     /* ---- Subdivide edge-ring (BMesh operator: subdivide_edgering) ---- */
 
     bool bms_subdivide_edgering(BMesh *bm,

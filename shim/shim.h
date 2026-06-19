@@ -1281,6 +1281,52 @@ extern "C"
                                    float profile_shape_factor,
                                    BMFace **out_buf, int out_cap);
 
+    /* Capturing variant of `bms_subdivide_edges`. Runs the same
+     * `subdivide_edges` BMOP with the identical parameter set and, after
+     * exec, reads back the operator's three output geometry slots:
+     *
+     *   - `geom_split.out`  — the new midpoint verts plus the edge-halves
+     *                         produced by splitting the input edges.
+     *   - `geom_inner.out`  — the inner edges (and, for the 4-cut quad /
+     *                         3-cut tri patterns, the inner vert) added by
+     *                         the per-face re-split.
+     *   - `geom.out`        — the union of every vert, edge and face the
+     *                         operator created or replaced.
+     *
+     * Each slot is a heterogeneous element buffer; its pointers are written
+     * type-erased as BMHeader* into the matching `out_*` buffer, and the
+     * caller distinguishes verts / edges / faces via `bms_elem_htype`
+     * (resolving coordinates with `bms_vert_co`, endpoints with
+     * `bms_edge_verts`, and face corners with the face-vertex accessors).
+     *
+     * For each slot, up to `*_cap` pointers are written and the full slot
+     * length is reported through the matching `r_*_len` out-param (which may
+     * be null); a reported length greater than its cap signals truncation.
+     * Each `out_*` buffer may be null only when its cap is zero
+     * (size-probing mode).
+     *
+     * Returns 0 on success, or -1 if BMO_op_initf rejected the input. */
+    int bms_subdivide_core_out(BMesh *bm,
+                               BMEdge **edges, int edges_len,
+                               int cuts,
+                               float smooth,
+                               int smooth_falloff,
+                               bool use_smooth_even,
+                               float fractal,
+                               float along_normal,
+                               int seed,
+                               int quad_corner_type,
+                               bool use_grid_fill,
+                               bool use_single_edge,
+                               bool use_only_quads,
+                               bool use_sphere,
+                               BMHeader **out_split, int out_split_cap,
+                               int *r_split_len,
+                               BMHeader **out_inner, int out_inner_cap,
+                               int *r_inner_len,
+                               BMHeader **out_geom, int out_geom_cap,
+                               int *r_geom_len);
+
     /* Invoke BMesh's `bisect_edges` operator on the supplied edge set. This
      * is the pure per-edge midpoint-split phase: each input edge is split into
      * `cuts` evenly-spaced segments, introducing `cuts` two-valence vertices

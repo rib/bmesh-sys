@@ -1159,6 +1159,60 @@ unsafe extern "C" {
         use_sphere: bool,
     ) -> bool;
 
+    /// Capturing variant of [`bms_subdivide_edges`].
+    ///
+    /// Runs the same `subdivide_edges` BMOP with the identical parameter
+    /// set and copies the operator's three output geometry slots into
+    /// caller-allocated buffers:
+    /// - `geom_split.out` -> `out_split` — the new midpoint verts plus the
+    ///   edge-halves produced by splitting the input edges.
+    /// - `geom_inner.out` -> `out_inner` — the inner edges (and inner vert,
+    ///   for the 4-cut quad / 3-cut tri patterns) added by the per-face
+    ///   re-split.
+    /// - `geom.out` -> `out_geom` — the union of every vert, edge and face
+    ///   created or replaced.
+    ///
+    /// Each slot is heterogeneous, so its pointers are returned type-erased
+    /// as [`BMHeader`]; classify each with [`bms_elem_htype`] and resolve
+    /// coordinates via [`bms_vert_co`], endpoints via [`bms_edge_verts`],
+    /// and face corners with the face-vertex accessors. Every element is the
+    /// first field of a `BMHeader`, so a vert / edge / face pointer may be
+    /// cast to `*mut BMHeader` freely.
+    ///
+    /// For each slot, up to `*_cap` pointers are written and the full slot
+    /// length is reported through the matching `r_*_len` out-param (which may
+    /// be null); a reported length greater than its cap signals truncation.
+    /// Each `out_*` buffer may be null only when its cap is zero
+    /// (size-probing mode).
+    ///
+    /// Returns `0` on success, or `-1` if the operator rejected the input.
+    pub fn bms_subdivide_core_out(
+        bm: *mut BMesh,
+        edges: *mut *mut BMEdge,
+        edges_len: c_int,
+        cuts: c_int,
+        smooth: f32,
+        smooth_falloff: c_int,
+        use_smooth_even: bool,
+        fractal: f32,
+        along_normal: f32,
+        seed: c_int,
+        quad_corner_type: c_int,
+        use_grid_fill: bool,
+        use_single_edge: bool,
+        use_only_quads: bool,
+        use_sphere: bool,
+        out_split: *mut *mut BMHeader,
+        out_split_cap: c_int,
+        r_split_len: *mut c_int,
+        out_inner: *mut *mut BMHeader,
+        out_inner_cap: c_int,
+        r_inner_len: *mut c_int,
+        out_geom: *mut *mut BMHeader,
+        out_geom_cap: c_int,
+        r_geom_len: *mut c_int,
+    ) -> c_int;
+
     /// Invoke BMesh's `subdivide_edgering` BMOP on the supplied edge set. The
     /// edge-ring is subdivided across its connecting faces, inserting `cuts`
     /// new loops and re-filling the spans with interpolated geometry. The mesh
@@ -2543,6 +2597,116 @@ mod tests {
                     assert_ne!(out_buf[i], out_buf[j]);
                 }
             }
+
+            bms_mesh_free(bm);
+        }
+    }
+
+    #[test]
+    fn subdivide_core_out_captures_all_three_slots() {
+        const BM_EDGE: c_int = 2;
+        const BM_FACE: c_int = 8;
+
+        unsafe {
+            let bm = bms_mesh_create();
+            assert!(!bm.is_null());
+
+            // A single unit quad in the XY plane.
+            let coords: [[f32; 3]; 4] = [
+                [0.0, 0.0, 0.0],
+                [1.0, 0.0, 0.0],
+                [1.0, 1.0, 0.0],
+                [0.0, 1.0, 0.0],
+            ];
+            let mut verts = [core::ptr::null_mut::<BMVert>(); 4];
+            for (slot, co) in verts.iter_mut().zip(coords.iter()) {
+                *slot = bms_vert_create(bm, co.as_ptr());
+                assert!(!slot.is_null());
+            }
+            let face = bms_face_create_verts(bm, verts.as_ptr(), 4, true);
+            assert!(!face.is_null());
+
+            // All four boundary edges form the input set.
+            let mut edges = [core::ptr::null_mut::<BMEdge>(); 4];
+            for i in 0..4 {
+                let e = bms_edge_exists(verts[i], verts[(i + 1) % 4]);
+                assert!(!e.is_null());
+                edges[i] = e;
+            }
+
+            let mut split = [core::ptr::null_mut::<BMHeader>(); 64];
+            let mut inner = [core::ptr::null_mut::<BMHeader>(); 64];
+            let mut geom = [core::ptr::null_mut::<BMHeader>(); 64];
+            let mut split_len = 0;
+            let mut inner_len = 0;
+            let mut geom_len = 0;
+
+            let rc = bms_subdivide_core_out(
+                bm,
+                edges.as_mut_ptr(),
+                edges.len() as c_int,
+                2, // cuts
+                0.0,
+                BMS_SUBD_FALLOFF_SMOOTH,
+                false,
+                0.0,
+                0.0,
+                0,
+                BMS_SUBD_CORNER_INNERVERT,
+                true,
+                false,
+                false,
+                false,
+                split.as_mut_ptr(),
+                split.len() as c_int,
+                &mut split_len,
+                inner.as_mut_ptr(),
+                inner.len() as c_int,
+                &mut inner_len,
+                geom.as_mut_ptr(),
+                geom.len() as c_int,
+                &mut geom_len,
+            );
+            assert_eq!(rc, 0);
+
+            // Classify a captured slot prefix into (verts, edges, faces).
+            let tally = |buf: &[*mut BMHeader], len: i32| {
+                let n = (len as usize).min(buf.len());
+                let mut v = 0;
+                let mut e = 0;
+                let mut f = 0;
+                for &h in &buf[..n] {
+                    assert!(!h.is_null());
+                    match bms_elem_htype(h as *const core::ffi::c_void) {
+                        BM_VERT => v += 1,
+                        BM_EDGE => e += 1,
+                        BM_FACE => f += 1,
+                        other => panic!("unexpected htype {other}"),
+                    }
+                }
+                (v, e, f)
+            };
+
+            // geom_split.out: the per-edge midpoint split. Two cuts on each
+            // of the four boundary edges yields 8 new verts, and the four
+            // input edges are each replaced by three segments (12 edges).
+            let (sv, se, sf) = tally(&split, split_len);
+            assert_eq!(split_len, 20);
+            assert_eq!((sv, se, sf), (8, 12, 0));
+
+            // geom_inner.out: the grid the per-face re-split adds inside the
+            // quad — 4 interior verts plus the 8 boundary midpoints carried
+            // through (12 verts), the inner grid edges (12), and the inner
+            // grid faces (8 of the 9 cells; the boundary cell aside).
+            let (iv, ie, if_) = tally(&inner, inner_len);
+            assert_eq!(inner_len, 32);
+            assert_eq!((iv, ie, if_), (12, 12, 8));
+
+            // geom.out: the union — every vert (12), edge (24) and face (9,
+            // the full 3x3 grid) the operator created or replaced.
+            let (gv, ge, gf) = tally(&geom, geom_len);
+            assert_eq!(geom_len, 45);
+            assert_eq!((gv, ge, gf), (12, 24, 9));
 
             bms_mesh_free(bm);
         }
