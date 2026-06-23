@@ -388,6 +388,31 @@ extern "C"
                               float thickness,
                               float depth);
 
+    /* Capturing variant of `bms_inset_individual`: runs the same operator with
+     * the same parameter list, but additionally copies the operator's
+     * `faces.out` slot (the newly-created inset wall faces) into the
+     * caller-supplied buffer `out_buf` of capacity `out_cap` face slots.
+     *
+     * Return value:
+     *   -1  on operator init failure (matches the `false` return of the
+     *       non-capturing variant).
+     *   >= 0 on success: the *total* number of faces the slot produced.
+     *       Up to `min(total, out_cap)` pointers are written to `out_buf`
+     *       (in the slot's emit order). If the returned count exceeds
+     *       `out_cap`, the buffer was undersized.
+     *
+     * `out_buf` may be null only when `out_cap` is zero; in that case the
+     * function still runs the operator and returns the face count for sizing
+     * purposes. */
+    int bms_inset_individual_out(BMesh *bm,
+                                 BMFace **faces, int faces_len,
+                                 bool use_even_offset,
+                                 bool use_interpolate,
+                                 bool use_relative_offset,
+                                 float thickness,
+                                 float depth,
+                                 BMFace **out_buf, int out_cap);
+
     /* Bevel the supplied vertices / edges / faces via BMesh's `bevel`
      * operator. `geom` is a mixed element buffer of BMVert* / BMEdge* /
      * BMFace* (type-erased to BMHeader*) of length `geom_len`, filled into

@@ -1909,6 +1909,58 @@ extern "C"
         return true;
     }
 
+    int bms_inset_individual_out(BMesh *bm,
+                                 BMFace **faces, int faces_len,
+                                 bool use_even_offset,
+                                 bool use_interpolate,
+                                 bool use_relative_offset,
+                                 float thickness,
+                                 float depth,
+                                 BMFace **out_buf, int out_cap)
+    {
+        BMIter it;
+        BMFace *f;
+        BM_ITER_MESH(f, &it, bm, BM_FACES_OF_MESH)
+        {
+            BM_elem_flag_disable(f, BM_ELEM_TAG);
+            BM_face_normal_update(f);
+        }
+        for (int i = 0; i < faces_len; i++)
+        {
+            BM_elem_flag_enable(faces[i], BM_ELEM_TAG);
+        }
+
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "inset_individual faces=%hf "
+                          "use_even_offset=%b use_interpolate=%b "
+                          "use_relative_offset=%b thickness=%f depth=%f",
+                          BM_ELEM_TAG,
+                          use_even_offset,
+                          use_interpolate,
+                          use_relative_offset,
+                          double(thickness),
+                          double(depth)))
+        {
+            return -1;
+        }
+        BMO_op_exec(bm, &op);
+
+        BMOpSlot *out_slot = BMO_slot_get(op.slots_out, "faces.out");
+        const int n = out_slot->len;
+        const int n_copy = (n < out_cap) ? n : out_cap;
+        BMFace **slot_items = reinterpret_cast<BMFace **>(out_slot->data.buf);
+        for (int i = 0; i < n_copy; ++i)
+        {
+            out_buf[i] = slot_items[i];
+        }
+
+        BMO_op_finish(bm, &op);
+        return n;
+    }
+
     /* ---- Bevel (BMesh operator: bevel) ---- */
     /*
      * The bevel operator is driven through its BMOP slot form (no public

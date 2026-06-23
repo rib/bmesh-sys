@@ -695,6 +695,32 @@ unsafe extern "C" {
         depth: f32,
     ) -> bool;
 
+    /// Capturing variant of [`bms_inset_individual`]: runs the same operator
+    /// with the same parameters, but also copies the operator's `faces.out`
+    /// slot (the newly-created inset wall faces) into `out_buf`.
+    ///
+    /// Returns the *total* `faces.out` count produced by the operator (which
+    /// may exceed `out_cap`, indicating the buffer was undersized), or `-1` if
+    /// the operator rejected the input.
+    ///
+    /// # Safety
+    ///
+    /// `bm` must be a valid mesh. `faces` must be valid for `faces_len`
+    /// elements, all belonging to `bm`. `out_buf` must be valid for `out_cap`
+    /// writes (or null when `out_cap == 0`).
+    pub fn bms_inset_individual_out(
+        bm: *mut BMesh,
+        faces: *mut *mut BMFace,
+        faces_len: c_int,
+        use_even_offset: bool,
+        use_interpolate: bool,
+        use_relative_offset: bool,
+        thickness: f32,
+        depth: f32,
+        out_buf: *mut *mut BMFace,
+        out_cap: c_int,
+    ) -> c_int;
+
     /// Bevel the supplied verts / edges / faces via BMesh's `bevel` BMOP.
     ///
     /// `geom` is a mixed element buffer of `*mut BMVert` / `*mut BMEdge` /
