@@ -419,6 +419,43 @@ unsafe extern "C" {
         use_normal_flip: bool,
     ) -> bool;
 
+    /// Capturing variant of [`bms_extrude_face_region_geom`] that reads back
+    /// the operator's `geom.out` output slot.
+    ///
+    /// The inputs (`bm`, `geom`, `geom_len`, `edges_exclude`,
+    /// `edges_exclude_len`, `use_keep_orig`, `use_normal_flip`) behave exactly
+    /// as for [`bms_extrude_face_region_geom`]. After execution, the operator's
+    /// `geom.out` slot holds the full set of geometry the extrude produced: a
+    /// mixed element buffer of verts, edges, and faces. Each element is
+    /// returned type-erased as a `*mut BMHeader` (the header is the first field
+    /// of every element, so it may be cast back to the concrete kind by reading
+    /// its `htype`).
+    ///
+    /// Up to `out_cap` pointers are written into the caller-allocated `out_buf`.
+    /// The return value is the total `geom.out` element count, which may exceed
+    /// `out_cap`; in that case `out_buf` holds the first `out_cap` elements and
+    /// the caller may re-query with a larger buffer. Returns `-1` if the
+    /// operator rejected the input (no output is written in that case).
+    ///
+    /// # Safety
+    ///
+    /// `bm` must be a valid mesh. `geom` must be valid for `geom_len`
+    /// elements and `edges_exclude` valid for `edges_exclude_len` elements
+    /// (or null when the length is zero). All referenced elements must belong
+    /// to `bm`. `out_buf` must be valid for at least `out_cap` `*mut BMHeader`
+    /// writes (or null when `out_cap == 0`).
+    pub fn bms_extrude_face_region_geom_out(
+        bm: *mut BMesh,
+        geom: *mut *mut BMHeader,
+        geom_len: c_int,
+        edges_exclude: *mut *mut BMEdge,
+        edges_exclude_len: c_int,
+        use_keep_orig: bool,
+        use_normal_flip: bool,
+        out_buf: *mut *mut BMHeader,
+        out_cap: c_int,
+    ) -> c_int;
+
     /// Extrudes a region of faces while forwarding the operator's
     /// `use_normal_from_adjacent` slot.
     ///

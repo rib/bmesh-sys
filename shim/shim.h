@@ -204,6 +204,20 @@ extern "C"
                                       bool use_keep_orig,
                                       bool use_normal_flip);
 
+    /* Capturing variant of bms_extrude_face_region_geom. Inputs match that      */
+    /* function exactly; additionally reads back the operator's `geom.out`        */
+    /* output slot before finishing. `geom.out` is a mixed element buffer of      */
+    /* the verts, edges, and faces the extrude produced; each is returned         */
+    /* type-erased as a BMHeader*. Up to `out_cap` pointers are copied into the   */
+    /* caller-allocated `out_buf`. Returns the total `geom.out` element count     */
+    /* (which may exceed `out_cap`), or -1 if the operator rejected the input.    */
+    int bms_extrude_face_region_geom_out(BMesh *bm,
+                                         BMHeader **geom, int geom_len,
+                                         BMEdge **edges_exclude, int edges_exclude_len,
+                                         bool use_keep_orig,
+                                         bool use_normal_flip,
+                                         BMHeader **out_buf, int out_cap);
+
     /* Extrude a region of faces, forwarding the operator's                      */
     /* `use_normal_from_adjacent` slot. Marks each input face with BM_ELEM_TAG    */
     /* and passes them as the operator's `geom` input. `use_keep_orig`,           */

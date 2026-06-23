@@ -1308,6 +1308,73 @@ extern "C"
         return true;
     }
 
+    /*
+     * Capturing variant of bms_extrude_face_region_geom: runs the operator and
+     * reads back its `geom.out` output slot before finishing.
+     *
+     * The inputs match bms_extrude_face_region_geom exactly. After execution
+     * the operator's `geom.out` slot holds the full set of geometry the extrude
+     * produced -- a mixed element buffer of verts, edges, and faces. Each
+     * element is returned type-erased as a BMHeader* (the header is the first
+     * field of every element). Up to `out_cap` pointers are copied into the
+     * caller-allocated `out_buf`; the return value is the total `geom.out`
+     * element count, which may exceed `out_cap` (the caller can re-query with a
+     * larger buffer). The slot is read before BMO_op_finish frees it.
+     *
+     * Returns -1 if BMO_op_initf rejected the input.
+     */
+    int bms_extrude_face_region_geom_out(BMesh *bm,
+                                         BMHeader **geom, int geom_len,
+                                         BMEdge **edges_exclude, int edges_exclude_len,
+                                         bool use_keep_orig,
+                                         bool use_normal_flip,
+                                         BMHeader **out_buf, int out_cap)
+    {
+        using namespace blender;
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "extrude_face_region geom=%eb use_keep_orig=%b use_normal_flip=%b",
+                          reinterpret_cast<BMHeader **>(geom),
+                          geom_len,
+                          use_keep_orig,
+                          use_normal_flip))
+        {
+            return -1;
+        }
+
+        if (edges_exclude && edges_exclude_len > 0)
+        {
+            BMOpSlot *slot = BMO_slot_get(op.slots_in, "edges_exclude");
+            for (int i = 0; i < edges_exclude_len; i++)
+            {
+                BMO_slot_map_insert(&op, slot, edges_exclude[i], nullptr);
+            }
+        }
+
+        BMO_op_exec(bm, &op);
+
+        /* Walk the `geom.out` element buffer (verts + edges + faces). */
+        int out_count = 0;
+        {
+            BMOIter oiter;
+            BMHeader *ele = static_cast<BMHeader *>(
+                BMO_iter_new(&oiter, op.slots_out, "geom.out", BM_ALL_NOLOOP));
+            for (; ele; ele = static_cast<BMHeader *>(BMO_iter_step(&oiter)))
+            {
+                if (out_count < out_cap)
+                {
+                    out_buf[out_count] = ele;
+                }
+                out_count++;
+            }
+        }
+
+        BMO_op_finish(bm, &op);
+        return out_count;
+    }
+
     bool bms_extrude_face_region_normal_from_adjacent(BMesh *bm,
                                                       BMFace **faces, int faces_len,
                                                       bool use_keep_orig,
