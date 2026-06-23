@@ -1663,6 +1663,34 @@ unsafe extern "C" {
         factor: f32,
     ) -> bool;
 
+    /// Capturing variant of [`bms_planar_faces`] that reads back the
+    /// operator's `geom.out` output slot.
+    ///
+    /// Runs the same `planar_faces` BMOP with the same `faces` / `iterations`
+    /// / `factor` parameterisation, then copies up to `out_cap` element-header
+    /// pointers from the `geom.out` slot into `out_geom_buf`. That slot is a
+    /// mixed-geometry buffer (slot type `BM_VERT | BM_EDGE | BM_FACE`), so its
+    /// entries are type-erased [`BMHeader`] pointers that may refer to verts,
+    /// edges, or faces interchangeably; inspect each header's element type
+    /// before casting.
+    ///
+    /// `faces` may be null when `faces_len` is zero (empty no-op).
+    /// `out_geom_buf` must be valid for at least `out_cap` `*mut BMHeader`
+    /// slots. Element pointers must remain valid for the duration of the call.
+    /// Returns the slot's true element count — which may exceed `out_cap`, in
+    /// which case only the first `out_cap` entries are written — or -1 if the
+    /// operator rejected the input. The operator does not populate `geom.out`,
+    /// so the returned length is expected to be zero.
+    pub fn bms_planar_faces_geom_out(
+        bm: *mut BMesh,
+        faces: *mut *mut BMFace,
+        faces_len: c_int,
+        iterations: c_int,
+        factor: f32,
+        out_geom_buf: *mut *mut BMHeader,
+        out_cap: c_int,
+    ) -> c_int;
+
     /// Invoke BMesh's `rotate_edges` BMOP on the supplied edge set. Each
     /// eligible edge — one shared by exactly two faces whose union forms a
     /// quad — is rotated (spun) to its other diagonal; ineligible edges are

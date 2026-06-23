@@ -3240,6 +3240,39 @@ extern "C"
         return true;
     }
 
+    int bms_planar_faces_geom_out(BMesh *bm,
+                                  BMFace **faces, int faces_len,
+                                  int iterations, float factor,
+                                  BMHeader **out_geom_buf, int out_cap)
+    {
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "planar_faces faces=%eb iterations=%i factor=%f",
+                          reinterpret_cast<BMHeader **>(faces),
+                          faces_len,
+                          iterations,
+                          factor))
+        {
+            return -1;
+        }
+        BMO_op_exec(bm, &op);
+
+        /* Walk the mixed vert/edge/face `geom.out` element buffer. */
+        BMOpSlot *slot = BMO_slot_get(op.slots_out, "geom.out");
+        const int n = slot->len;
+        const int n_copy = (n < out_cap) ? n : out_cap;
+        BMHeader **slot_items = reinterpret_cast<BMHeader **>(slot->data.buf);
+        for (int i = 0; i < n_copy; ++i)
+        {
+            out_geom_buf[i] = slot_items[i];
+        }
+
+        BMO_op_finish(bm, &op);
+        return n;
+    }
+
     /* ---- Rotate edges (BMesh operator: rotate_edges) ---- */
 
     bool bms_rotate_edges(BMesh *bm,

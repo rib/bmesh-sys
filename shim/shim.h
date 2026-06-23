@@ -1632,6 +1632,25 @@ extern "C"
                           BMFace **faces, int faces_len,
                           int iterations, float factor);
 
+    /* Capturing variant of `bms_planar_faces` that reads back the operator's
+     * `geom.out` output slot.
+     *
+     * Runs the same `planar_faces` BMOP with the same
+     * `faces=%eb iterations=%i factor=%f` parameterisation, then copies up to
+     * `out_cap` element-header pointers from the `geom.out` slot into
+     * `out_geom_buf`. The slot is a mixed-geometry buffer (slot type
+     * `BM_VERT | BM_EDGE | BM_FACE`), so its entries are `BMHeader *` pointers
+     * that may refer to verts, edges, or faces interchangeably.
+     *
+     * Returns the slot's true element count (which may exceed `out_cap`, in
+     * which case the buffer holds only the first `out_cap` entries), or -1 if
+     * BMO_op_initf rejected the input. The operator does not populate
+     * `geom.out`, so the returned length is expected to be zero. */
+    int bms_planar_faces_geom_out(BMesh *bm,
+                                  BMFace **faces, int faces_len,
+                                  int iterations, float factor,
+                                  BMHeader **out_geom_buf, int out_cap);
+
     /* Invoke BMesh's `rotate_edges` operator on the supplied edge set. Each
      * eligible edge — one shared by exactly two faces whose union forms a
      * quad — is rotated (spun) to its other diagonal; ineligible edges are
