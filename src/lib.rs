@@ -456,6 +456,58 @@ unsafe extern "C" {
         out_cap: c_int,
     ) -> c_int;
 
+    /// Solidifies (offsets) a marked face region.
+    ///
+    /// `geom` points to `geom_len` `*mut BMHeader` that may freely mix
+    /// vert / edge / face pointers in one call. The operator offsets the
+    /// marked face region along smoothed per-vertex normals by `thickness`
+    /// and stitches a rim of wall faces between the original boundary and the
+    /// offset duplicate.
+    ///
+    /// Returns `false` if the operator rejected the input.
+    ///
+    /// # Safety
+    ///
+    /// `bm` must be a valid mesh. `geom` must be valid for `geom_len`
+    /// elements. All referenced elements must belong to `bm`.
+    pub fn bms_solidify(
+        bm: *mut BMesh,
+        geom: *mut *mut BMHeader,
+        geom_len: c_int,
+        thickness: f32,
+    ) -> bool;
+
+    /// Capturing variant of [`bms_solidify`] that reads back the operator's
+    /// `geom.out` output slot.
+    ///
+    /// The inputs (`bm`, `geom`, `geom_len`, `thickness`) behave exactly as for
+    /// [`bms_solidify`]. After execution, the operator's `geom.out` slot holds
+    /// the full set of geometry the operation produced: a mixed element buffer
+    /// of verts, edges, and faces. Each element is returned type-erased as a
+    /// `*mut BMHeader` (the header is the first field of every element, so it
+    /// may be cast back to the concrete kind by reading its `htype`).
+    ///
+    /// Up to `out_cap` pointers are written into the caller-allocated `out_buf`.
+    /// The return value is the total `geom.out` element count, which may exceed
+    /// `out_cap`; in that case `out_buf` holds the first `out_cap` elements and
+    /// the caller may re-query with a larger buffer. Returns `-1` if the
+    /// operator rejected the input (no output is written in that case).
+    ///
+    /// # Safety
+    ///
+    /// `bm` must be a valid mesh. `geom` must be valid for `geom_len`
+    /// elements. All referenced elements must belong to `bm`. `out_buf` must be
+    /// valid for at least `out_cap` `*mut BMHeader` writes (or null when
+    /// `out_cap == 0`).
+    pub fn bms_solidify_out(
+        bm: *mut BMesh,
+        geom: *mut *mut BMHeader,
+        geom_len: c_int,
+        thickness: f32,
+        out_buf: *mut *mut BMHeader,
+        out_cap: c_int,
+    ) -> c_int;
+
     /// Extrudes a region of faces while forwarding the operator's
     /// `use_normal_from_adjacent` slot.
     ///

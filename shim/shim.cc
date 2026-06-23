@@ -1375,6 +1375,78 @@ extern "C"
         return out_count;
     }
 
+    bool bms_solidify(BMesh *bm, BMHeader **geom, int geom_len, float thickness)
+    {
+        using namespace blender;
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "solidify geom=%eb thickness=%f",
+                          reinterpret_cast<BMHeader **>(geom),
+                          geom_len,
+                          thickness))
+        {
+            return false;
+        }
+
+        BMO_op_exec(bm, &op);
+        BMO_op_finish(bm, &op);
+        return true;
+    }
+
+    /*
+     * Capturing variant of bms_solidify: runs the operator and reads back its
+     * `geom.out` output slot before finishing. The inputs match bms_solidify
+     * exactly. After execution the operator's `geom.out` slot holds the full
+     * set of geometry the operation produced -- a mixed element buffer of
+     * verts, edges, and faces. Each element is returned type-erased as a
+     * BMHeader* (the header is the first field of every element). Up to
+     * `out_cap` pointers are copied into the caller-allocated `out_buf`; the
+     * return value is the total `geom.out` element count, which may exceed
+     * `out_cap` (the caller can re-query with a larger buffer). The slot is
+     * read before BMO_op_finish frees it.
+     *
+     * Returns -1 if BMO_op_initf rejected the input.
+     */
+    int bms_solidify_out(BMesh *bm, BMHeader **geom, int geom_len, float thickness,
+                         BMHeader **out_buf, int out_cap)
+    {
+        using namespace blender;
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "solidify geom=%eb thickness=%f",
+                          reinterpret_cast<BMHeader **>(geom),
+                          geom_len,
+                          thickness))
+        {
+            return -1;
+        }
+
+        BMO_op_exec(bm, &op);
+
+        /* Walk the `geom.out` element buffer (verts + edges + faces). */
+        int out_count = 0;
+        {
+            BMOIter oiter;
+            BMHeader *ele = static_cast<BMHeader *>(
+                BMO_iter_new(&oiter, op.slots_out, "geom.out", BM_ALL_NOLOOP));
+            for (; ele; ele = static_cast<BMHeader *>(BMO_iter_step(&oiter)))
+            {
+                if (out_count < out_cap)
+                {
+                    out_buf[out_count] = ele;
+                }
+                out_count++;
+            }
+        }
+
+        BMO_op_finish(bm, &op);
+        return out_count;
+    }
+
     bool bms_extrude_face_region_normal_from_adjacent(BMesh *bm,
                                                       BMFace **faces, int faces_len,
                                                       bool use_keep_orig,

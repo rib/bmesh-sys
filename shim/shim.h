@@ -218,6 +218,25 @@ extern "C"
                                          bool use_normal_flip,
                                          BMHeader **out_buf, int out_cap);
 
+    /* Solidify (offset) a marked face region. `geom` is a type-erased element    */
+    /* buffer (%eb) of `geom_len` BMHeader* that may mix vert / edge / face       */
+    /* pointers; the operator offsets the marked face region along smoothed       */
+    /* per-vertex normals by `thickness` and stitches a rim of wall faces between */
+    /* the original boundary and the offset duplicate. Forwards `geom` to the     */
+    /* operator's `geom` input slot and `thickness` to its `thickness` float      */
+    /* slot. Returns true on success, false if the operator rejected the input.   */
+    bool bms_solidify(BMesh *bm, BMHeader **geom, int geom_len, float thickness);
+
+    /* Capturing variant of bms_solidify. Inputs match that function exactly;     */
+    /* additionally reads back the operator's `geom.out` output slot before       */
+    /* finishing. `geom.out` is a mixed element buffer of the verts, edges, and   */
+    /* faces the operation produced; each is returned type-erased as a BMHeader*. */
+    /* Up to `out_cap` pointers are copied into the caller-allocated `out_buf`.   */
+    /* Returns the total `geom.out` element count (which may exceed `out_cap`),   */
+    /* or -1 if the operator rejected the input.                                  */
+    int bms_solidify_out(BMesh *bm, BMHeader **geom, int geom_len, float thickness,
+                         BMHeader **out_buf, int out_cap);
+
     /* Extrude a region of faces, forwarding the operator's                      */
     /* `use_normal_from_adjacent` slot. Marks each input face with BM_ELEM_TAG    */
     /* and passes them as the operator's `geom` input. `use_keep_orig`,           */
