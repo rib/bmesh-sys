@@ -345,6 +345,36 @@ extern "C"
                           float thickness,
                           float depth);
 
+    /* Inset a region of faces and capture the operator's `faces.out` slot.
+     * Runs the same `inset_region` BMOP as `bms_inset_region` with the same
+     * parameter list, but additionally copies the operator's `faces.out`
+     * slot (the ring of wall faces created around the inset region) into the
+     * caller-supplied buffer `out_buf` of capacity `out_cap` face slots.
+     *
+     * Return value:
+     *   -1  on operator init failure (matches the `false` return of the
+     *       non-capturing variant).
+     *   >= 0 on success: the *total* number of faces the slot produced.
+     *       Up to `min(total, out_cap)` pointers are written to `out_buf`
+     *       (in the slot's emit order). If the returned count exceeds
+     *       `out_cap`, the buffer was undersized.
+     *
+     * `out_buf` may be null only when `out_cap` is zero; in that case the
+     * function still runs the operator and returns the face count for sizing
+     * purposes. */
+    int bms_inset_region_out(BMesh *bm,
+                             BMFace **faces, int faces_len,
+                             BMFace **faces_exclude, int faces_exclude_len,
+                             bool use_boundary,
+                             bool use_even_offset,
+                             bool use_interpolate,
+                             bool use_relative_offset,
+                             bool use_edge_rail,
+                             bool use_outset,
+                             float thickness,
+                             float depth,
+                             BMFace **out_buf, int out_cap);
+
     /* Inset each input face individually (no shared boundary handling). Marks
      * each input face with BM_ELEM_TAG, then invokes BMesh's `inset_individual`
      * operator.

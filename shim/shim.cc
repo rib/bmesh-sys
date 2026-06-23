@@ -1793,6 +1793,81 @@ extern "C"
         return true;
     }
 
+    /*
+     * Capturing variant of bms_inset_region: runs the same operator with the
+     * same parameter handling, then copies the `faces.out` slot (the ring of
+     * wall faces the inset creates around the region) into the caller-supplied
+     * `out_buf` of `out_cap` face slots. Returns the total slot count (which
+     * may exceed `out_cap`), or -1 on operator init failure.
+     */
+    int bms_inset_region_out(BMesh *bm,
+                             BMFace **faces, int faces_len,
+                             BMFace **faces_exclude, int faces_exclude_len,
+                             bool use_boundary,
+                             bool use_even_offset,
+                             bool use_interpolate,
+                             bool use_relative_offset,
+                             bool use_edge_rail,
+                             bool use_outset,
+                             float thickness,
+                             float depth,
+                             BMFace **out_buf, int out_cap)
+    {
+        BMIter it;
+        BMFace *f;
+        BM_ITER_MESH(f, &it, bm, BM_FACES_OF_MESH)
+        {
+            BM_elem_flag_disable(f, BM_ELEM_TAG);
+            BM_face_normal_update(f);
+        }
+        for (int i = 0; i < faces_len; i++)
+        {
+            BM_elem_flag_enable(faces[i], BM_ELEM_TAG);
+        }
+
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "inset_region faces=%hf use_boundary=%b "
+                          "use_even_offset=%b use_interpolate=%b "
+                          "use_relative_offset=%b use_edge_rail=%b "
+                          "use_outset=%b thickness=%f depth=%f",
+                          BM_ELEM_TAG,
+                          use_boundary,
+                          use_even_offset,
+                          use_interpolate,
+                          use_relative_offset,
+                          use_edge_rail,
+                          use_outset,
+                          double(thickness),
+                          double(depth)))
+        {
+            return -1;
+        }
+
+        if (faces_exclude && faces_exclude_len > 0)
+        {
+            BMOpSlot *slot = BMO_slot_get(op.slots_in, "faces_exclude");
+            BMO_slot_buffer_from_array(
+                &op, slot, reinterpret_cast<BMHeader **>(faces_exclude), faces_exclude_len);
+        }
+
+        BMO_op_exec(bm, &op);
+
+        BMOpSlot *out_slot = BMO_slot_get(op.slots_out, "faces.out");
+        const int n = out_slot->len;
+        const int n_copy = (n < out_cap) ? n : out_cap;
+        BMFace **slot_items = reinterpret_cast<BMFace **>(out_slot->data.buf);
+        for (int i = 0; i < n_copy; ++i)
+        {
+            out_buf[i] = slot_items[i];
+        }
+
+        BMO_op_finish(bm, &op);
+        return n;
+    }
+
     bool bms_inset_individual(BMesh *bm,
                               BMFace **faces, int faces_len,
                               bool use_even_offset,

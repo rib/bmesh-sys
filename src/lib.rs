@@ -640,6 +640,45 @@ unsafe extern "C" {
         depth: f32,
     ) -> bool;
 
+    /// Capturing variant of [`bms_inset_region`]: runs the same
+    /// `inset_region` operator with the same parameter list, then copies the
+    /// operator's `faces.out` slot (the ring of wall faces created around the
+    /// inset region) into the caller-allocated `out_buf`.
+    ///
+    /// `out_buf` must be valid for `out_cap` `*mut BMFace` slots; up to
+    /// `min(total, out_cap)` pointers are written in the slot's emit order.
+    /// The buffer is overwritten in place. `out_buf` may be null only when
+    /// `out_cap == 0`, in which case the operator still runs and the count is
+    /// returned for sizing.
+    ///
+    /// Returns the total `faces.out` count (which may exceed `out_cap` when
+    /// the buffer was undersized), or `-1` if the operator rejected the input.
+    ///
+    /// # Safety
+    ///
+    /// `bm` must be a valid mesh. `faces` must be valid for `faces_len`
+    /// elements and `faces_exclude` valid for `faces_exclude_len` elements
+    /// (or null when that length is zero); all referenced faces must belong
+    /// to `bm`. `out_buf` must be valid for `out_cap` writes (or null when
+    /// `out_cap == 0`).
+    pub fn bms_inset_region_out(
+        bm: *mut BMesh,
+        faces: *mut *mut BMFace,
+        faces_len: c_int,
+        faces_exclude: *mut *mut BMFace,
+        faces_exclude_len: c_int,
+        use_boundary: bool,
+        use_even_offset: bool,
+        use_interpolate: bool,
+        use_relative_offset: bool,
+        use_edge_rail: bool,
+        use_outset: bool,
+        thickness: f32,
+        depth: f32,
+        out_buf: *mut *mut BMFace,
+        out_cap: c_int,
+    ) -> c_int;
+
     /// Marks each input face with `BM_ELEM_TAG`, then invokes BMesh's
     /// `inset_individual` operator. Each face is inset in its own plane,
     /// independently of its neighbours.
