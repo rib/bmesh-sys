@@ -477,6 +477,31 @@ unsafe extern "C" {
         use_dissolve_ortho_edges: bool,
     ) -> bool;
 
+    /// Extrude a region of faces, forwarding the operator's `skip_input_flip`
+    /// slot alongside `use_keep_orig`. Tags each input face with `BM_ELEM_TAG`
+    /// and passes them as the operator's `geom` input.
+    ///
+    /// `skip_input_flip` only has an effect when `use_keep_orig` is true: the
+    /// kept-original cleanup may reverse the winding of the retained original
+    /// face, and `skip_input_flip` suppresses that flip so the original keeps
+    /// its incoming orientation. Both booleans are forwarded verbatim;
+    /// `use_normal_flip` is left at its operator default. No input faces are
+    /// killed by this wrapper.
+    ///
+    /// Returns false if the operator rejected the input.
+    ///
+    /// # Safety
+    ///
+    /// `bm` must be a valid mesh. `faces` must be valid for `faces_len`
+    /// elements and all referenced faces must belong to `bm`.
+    pub fn bms_extrude_face_region_skip_input_flip(
+        bm: *mut BMesh,
+        faces: *mut *mut BMFace,
+        faces_len: c_int,
+        use_keep_orig: bool,
+        skip_input_flip: bool,
+    ) -> bool;
+
     /// Marks each input face with `BM_ELEM_TAG`, then invokes BMesh's
     /// `extrude_discrete_faces` operator. Each face is extruded individually,
     /// so two formerly-adjacent input faces split apart along their shared
@@ -2722,6 +2747,45 @@ mod tests {
             let (gv, ge, gf) = tally(&geom, geom_len);
             assert_eq!(geom_len, 45);
             assert_eq!((gv, ge, gf), (12, 24, 9));
+
+            bms_mesh_free(bm);
+        }
+    }
+
+    #[test]
+    fn extrude_face_region_skip_input_flip_runs_with_keep_orig() {
+        unsafe {
+            let bm = bms_mesh_create();
+            assert!(!bm.is_null());
+
+            // A single quad in the z = 0 plane.
+            let coords: [[f32; 3]; 4] = [
+                [0.0, 0.0, 0.0],
+                [1.0, 0.0, 0.0],
+                [1.0, 1.0, 0.0],
+                [0.0, 1.0, 0.0],
+            ];
+            let mut verts = [core::ptr::null_mut::<BMVert>(); 4];
+            for (slot, co) in verts.iter_mut().zip(coords.iter()) {
+                *slot = bms_vert_create(bm, co.as_ptr());
+                assert!(!slot.is_null());
+            }
+
+            let face = bms_face_create_verts(bm, verts.as_ptr(), 4, true);
+            assert!(!face.is_null());
+
+            // With use_keep_orig, the original face is retained alongside the
+            // extruded duplicate; skip_input_flip suppresses the kept-original
+            // flip. Both arrangements should be accepted by the operator.
+            let mut faces = [face];
+            let ok = bms_extrude_face_region_skip_input_flip(
+                bm,
+                faces.as_mut_ptr(),
+                faces.len() as c_int,
+                /* use_keep_orig */ true,
+                /* skip_input_flip */ true,
+            );
+            assert!(ok);
 
             bms_mesh_free(bm);
         }

@@ -240,6 +240,20 @@ extern "C"
                                                 bool use_normal_flip,
                                                 bool use_dissolve_ortho_edges);
 
+    /* Extrude a region of faces, forwarding the operator's `skip_input_flip`     */
+    /* slot alongside `use_keep_orig`. Marks each input face with BM_ELEM_TAG and */
+    /* passes them as the operator's `geom` input. `skip_input_flip` only has an  */
+    /* effect when `use_keep_orig` is true: the kept-original cleanup may reverse */
+    /* the winding of the retained original face, and `skip_input_flip` suppresses*/
+    /* that flip so the original keeps its incoming orientation. Both booleans    */
+    /* are forwarded verbatim; `use_normal_flip` is left at its operator default. */
+    /* No input faces are killed after the op. Returns true on success, false if  */
+    /* the operator rejected the input. */
+    bool bms_extrude_face_region_skip_input_flip(BMesh *bm,
+                                                 BMFace **faces, int faces_len,
+                                                 bool use_keep_orig,
+                                                 bool skip_input_flip);
+
     /* Extrude faces individually (discrete). Marks each input face with         */
     /* BM_ELEM_TAG, then invokes BMesh's `extrude_discrete_faces` operator. Each */
     /* input face is extruded on its own, so two formerly-adjacent input faces   */

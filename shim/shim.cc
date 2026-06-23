@@ -1425,6 +1425,57 @@ extern "C"
         return true;
     }
 
+    /*
+     * Extrude a region of faces, forwarding the operator's `skip_input_flip`
+     * slot alongside `use_keep_orig`.
+     *
+     * `skip_input_flip` only has an effect when `use_keep_orig` is true. With
+     * `use_keep_orig`, the operator's kept-original cleanup may reverse the
+     * winding of the retained original face; setting `skip_input_flip`
+     * suppresses that flip so the original keeps its incoming orientation.
+     * Both booleans are forwarded verbatim. `use_normal_flip` is left at its
+     * operator default.
+     *
+     * Marks each input face with BM_ELEM_TAG and passes them as the operator's
+     * `geom` input. No input faces are killed after the op; deletion of
+     * selection-interior originals is left to the operator under
+     * use_keep_orig=false.
+     *
+     * Returns true on success, false if the operator rejected the input.
+     */
+    bool bms_extrude_face_region_skip_input_flip(BMesh *bm,
+                                                 BMFace **faces, int faces_len,
+                                                 bool use_keep_orig,
+                                                 bool skip_input_flip)
+    {
+        using namespace blender;
+        BMIter it;
+        BMFace *f;
+        BM_ITER_MESH(f, &it, bm, BM_FACES_OF_MESH)
+        {
+            BM_elem_flag_disable(f, BM_ELEM_TAG);
+        }
+        for (int i = 0; i < faces_len; i++)
+        {
+            BM_elem_flag_enable(faces[i], BM_ELEM_TAG);
+        }
+
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "extrude_face_region geom=%hf use_keep_orig=%b skip_input_flip=%b",
+                          BM_ELEM_TAG,
+                          use_keep_orig,
+                          skip_input_flip))
+        {
+            return false;
+        }
+        BMO_op_exec(bm, &op);
+        BMO_op_finish(bm, &op);
+        return true;
+    }
+
     /* ---- Extrude (BMesh operator: extrude_discrete_faces) ---- */
     /*
      * Marks each input face with BM_ELEM_TAG (after clearing TAG on every other
