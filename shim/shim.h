@@ -544,6 +544,20 @@ extern "C"
                             bool use_face_split,
                             float angle_threshold);
 
+    /* Invoke BMesh's `offset_edgeloops` operator on the supplied edge set,
+     * inserting a parallel edge loop on each flanked side of the input
+     * edges. Exposes the BMOP slot parameter explicitly:
+     *
+     *   - `use_cap_endpoint`  — extend the inserted loop around open
+     *                           end-points of the selection.
+     *
+     * The operator's `edges.out` slot is not surfaced by this binding.
+     *
+     * Returns true on success, false if BMO_op_initf rejected the input. */
+    bool bms_offset_edgeloops(BMesh *bm,
+                              BMEdge **edges, int edges_len,
+                              bool use_cap_endpoint);
+
     /* Invoke BMesh's `dissolve_faces` operator on the supplied face set.
      * Partitions the set into edge-adjacent connected components and merges
      * each component into a single face. Exposes both BMOP slot parameters

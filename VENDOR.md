@@ -58,7 +58,7 @@ Mesh creation in [`shim/shim.cc`](shim/shim.cc) (`bms_mesh_create`) sets
 | join_triangles | bmo_join_triangles.cc | |
 | mirror | bmo_mirror.cc | |
 | recalc_face_normals / flip_quad_tessellation / reverse_faces / reverse_colors / reverse_uvs | bmo_normals.cc | |
-| offset_edgeloops | bmo_offset_edgeloops.cc | |
+| offset_edgeloops | bmo_offset_edgeloops.cc | Surfaced via the `bms_offset_edgeloops` shim (`edges`, `use_cap_endpoint`; `edges.out` not surfaced). |
 | planar_faces | bmo_planar_faces.cc | |
 | poke | bmo_poke.cc | A/B-testable against our `face_poke` once we surface a `bms_poke` shim. |
 | collapse / collapse_uvs / find_doubles / remove_doubles / pointmerge / pointmerge_facedata / average_vert_facedata / weld_verts | bmo_removedoubles.cc | |

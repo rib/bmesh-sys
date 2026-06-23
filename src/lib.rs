@@ -910,6 +910,24 @@ unsafe extern "C" {
         angle_threshold: f32,
     ) -> bool;
 
+    /// Invoke BMesh's `offset_edgeloops` BMOP on the supplied edge set,
+    /// inserting a parallel edge loop on each flanked side of the input
+    /// edges. The single BMOP slot parameter is forwarded explicitly:
+    ///
+    /// - `use_cap_endpoint` — extend the inserted loop around open
+    ///   end-points of the selection.
+    ///
+    /// `edges` points to a buffer of `edges_len` edge pointers; the buffer
+    /// is read, not modified. The operator's `edges.out` slot is not
+    /// surfaced by this binding. Returns false if the operator rejected
+    /// the input.
+    pub fn bms_offset_edgeloops(
+        bm: *mut BMesh,
+        edges: *mut *mut BMEdge,
+        edges_len: c_int,
+        use_cap_endpoint: bool,
+    ) -> bool;
+
     /// Invoke BMesh's `dissolve_faces` BMOP on the supplied face set.
     /// Partitions the set into edge-adjacent connected components and merges
     /// each component into a single face. Both BMOP slot parameters are

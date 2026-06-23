@@ -2269,6 +2269,38 @@ extern "C"
         return true;
     }
 
+    /* Invoke BMesh's `offset_edgeloops` operator on the supplied edge set,
+     * inserting a parallel edge loop on each flanked side of the input
+     * edges. Driven through the BMOP slot-form (using "%eb" with a raw
+     * `(BMHeader **, int)` element buffer):
+     *
+     *   - `use_cap_endpoint` — extend the inserted loop around open
+     *                          end-points of the selection.
+     *
+     * The operator's `edges.out` slot is not surfaced here. The input
+     * pointers themselves are not modified.
+     *
+     * Returns true on success, false if BMO_op_initf rejected the input. */
+    bool bms_offset_edgeloops(BMesh *bm,
+                              BMEdge **edges, int edges_len,
+                              bool use_cap_endpoint)
+    {
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "offset_edgeloops edges=%eb use_cap_endpoint=%b",
+                          reinterpret_cast<BMHeader **>(edges),
+                          edges_len,
+                          use_cap_endpoint))
+        {
+            return false;
+        }
+        BMO_op_exec(bm, &op);
+        BMO_op_finish(bm, &op);
+        return true;
+    }
+
     bool bms_dissolve_faces(BMesh *bm,
                             BMFace **faces, int faces_len,
                             bool use_verts)
