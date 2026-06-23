@@ -3217,6 +3217,29 @@ extern "C"
         return n;
     }
 
+    /* ---- Planar faces (BMesh operator: planar_faces) ---- */
+
+    bool bms_planar_faces(BMesh *bm,
+                          BMFace **faces, int faces_len,
+                          int iterations, float factor)
+    {
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "planar_faces faces=%eb iterations=%i factor=%f",
+                          reinterpret_cast<BMHeader **>(faces),
+                          faces_len,
+                          iterations,
+                          factor))
+        {
+            return false;
+        }
+        BMO_op_exec(bm, &op);
+        BMO_op_finish(bm, &op);
+        return true;
+    }
+
     /* ---- Rotate edges (BMesh operator: rotate_edges) ---- */
 
     bool bms_rotate_edges(BMesh *bm,

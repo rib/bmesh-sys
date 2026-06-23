@@ -1613,6 +1613,25 @@ extern "C"
                                               float angle_limit,
                                               BMFace **out_buf, int out_cap);
 
+    /* Invoke BMesh's `planar_faces` operator on the supplied face set. The
+     * operator nudges the vertices of the input faces toward each face's
+     * average plane, flattening them in place. Exposes the operator's three
+     * input slots:
+     *
+     *   - `faces`      — the faces to flatten.
+     *   - `iterations` — number of flattening passes (relevant when the
+     *                    input faces share vertices, so each pass propagates).
+     *   - `factor`     — per-iteration influence of the move toward planar.
+     *
+     * The operator mutates input-face vertex positions in place and does not
+     * produce any geometry the caller needs read back, so no output buffer is
+     * exposed. `faces` may be null when `faces_len` is zero (empty no-op).
+     *
+     * Returns true on success, false if BMO_op_initf rejected the input. */
+    bool bms_planar_faces(BMesh *bm,
+                          BMFace **faces, int faces_len,
+                          int iterations, float factor);
+
     /* Invoke BMesh's `rotate_edges` operator on the supplied edge set. Each
      * eligible edge — one shared by exactly two faces whose union forms a
      * quad — is rotated (spun) to its other diagonal; ineligible edges are

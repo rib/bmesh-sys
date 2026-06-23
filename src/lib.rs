@@ -1640,6 +1640,29 @@ unsafe extern "C" {
         out_cap: c_int,
     ) -> c_int;
 
+    /// Invoke BMesh's `planar_faces` BMOP on the supplied face set. The
+    /// operator nudges the input faces' vertex positions toward each face's
+    /// average plane, flattening them in place. The three input slots are
+    /// forwarded:
+    ///
+    /// - `faces` — the faces to flatten.
+    /// - `iterations` — number of flattening passes (passes propagate when
+    ///   the input faces share vertices).
+    /// - `factor` — per-iteration influence of the move toward planar.
+    ///
+    /// The operator mutates vertex coordinates in place and exposes no output
+    /// geometry, so there is no out-buffer. `faces` may be null when
+    /// `faces_len` is zero (empty no-op). Element pointers must remain valid
+    /// for the duration of the call. Returns false if the operator rejected
+    /// the input.
+    pub fn bms_planar_faces(
+        bm: *mut BMesh,
+        faces: *mut *mut BMFace,
+        faces_len: c_int,
+        iterations: c_int,
+        factor: f32,
+    ) -> bool;
+
     /// Invoke BMesh's `rotate_edges` BMOP on the supplied edge set. Each
     /// eligible edge — one shared by exactly two faces whose union forms a
     /// quad — is rotated (spun) to its other diagonal; ineligible edges are
