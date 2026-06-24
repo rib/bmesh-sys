@@ -2301,6 +2301,46 @@ extern "C"
         return true;
     }
 
+    /* As bms_offset_edgeloops, but surfaces the operator's `edges.out`
+     * slot — the rail/cap edges the operator inserted — into the
+     * caller-allocated `out_edges` buffer.
+     *
+     * Up to `min(slot->len, out_cap)` edge pointers are written to
+     * `out_edges` in the slot's emit order; the full slot count is
+     * returned so the caller can detect a truncated copy.
+     *
+     * Returns -1 if BMO_op_initf rejected the input. */
+    int bms_offset_edgeloops_out(BMesh *bm,
+                                 BMEdge **edges, int edges_len,
+                                 bool use_cap_endpoint,
+                                 BMEdge **out_edges, int out_cap)
+    {
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "offset_edgeloops edges=%eb use_cap_endpoint=%b",
+                          reinterpret_cast<BMHeader **>(edges),
+                          edges_len,
+                          use_cap_endpoint))
+        {
+            return -1;
+        }
+        BMO_op_exec(bm, &op);
+
+        BMOpSlot *slot = BMO_slot_get(op.slots_out, "edges.out");
+        const int n = slot->len;
+        const int n_copy = (n < out_cap) ? n : out_cap;
+        BMEdge **slot_items = reinterpret_cast<BMEdge **>(slot->data.buf);
+        for (int i = 0; i < n_copy; ++i)
+        {
+            out_edges[i] = slot_items[i];
+        }
+
+        BMO_op_finish(bm, &op);
+        return n;
+    }
+
     bool bms_dissolve_faces(BMesh *bm,
                             BMFace **faces, int faces_len,
                             bool use_verts)

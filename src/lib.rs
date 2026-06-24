@@ -928,6 +928,27 @@ unsafe extern "C" {
         use_cap_endpoint: bool,
     ) -> bool;
 
+    /// As [`bms_offset_edgeloops`], but surfaces the operator's
+    /// `edges.out` slot — the rail/cap edges the operator inserted —
+    /// into the caller-allocated `out_edges` buffer:
+    ///
+    /// - `-1` on operator init failure.
+    /// - `>= 0` on success: the *total* edge count the slot produced. Up
+    ///   to `min(total, out_cap)` pointers are written to `out_edges` in
+    ///   the slot's emit order; if `total > out_cap` the buffer was
+    ///   undersized.
+    ///
+    /// `out_edges` may be null only when `out_cap` is zero (size-probing
+    /// mode).
+    pub fn bms_offset_edgeloops_out(
+        bm: *mut BMesh,
+        edges: *mut *mut BMEdge,
+        edges_len: c_int,
+        use_cap_endpoint: bool,
+        out_edges: *mut *mut BMEdge,
+        out_cap: c_int,
+    ) -> c_int;
+
     /// Invoke BMesh's `dissolve_faces` BMOP on the supplied face set.
     /// Partitions the set into edge-adjacent connected components and merges
     /// each component into a single face. Both BMOP slot parameters are

@@ -558,6 +558,18 @@ extern "C"
                               BMEdge **edges, int edges_len,
                               bool use_cap_endpoint);
 
+    /* As bms_offset_edgeloops, but surfaces the operator's `edges.out`
+     * slot — the rail/cap edges the operator inserted — into the
+     * caller-allocated `out_edges` buffer. Up to `min(slot_len, out_cap)`
+     * pointers are written; the full slot count is returned so callers can
+     * detect truncation.
+     *
+     * Returns -1 if BMO_op_initf rejected the input. */
+    int bms_offset_edgeloops_out(BMesh *bm,
+                                 BMEdge **edges, int edges_len,
+                                 bool use_cap_endpoint,
+                                 BMEdge **out_edges, int out_cap);
+
     /* Invoke BMesh's `dissolve_faces` operator on the supplied face set.
      * Partitions the set into edge-adjacent connected components and merges
      * each component into a single face. Exposes both BMOP slot parameters
