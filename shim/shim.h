@@ -237,6 +237,38 @@ extern "C"
     int bms_solidify_out(BMesh *bm, BMHeader **geom, int geom_len, float thickness,
                          BMHeader **out_buf, int out_cap);
 
+    /* Wireframe a marked face region. `faces` is a type-erased element buffer  */
+    /* (%eb) of `faces_len` BMHeader* face pointers; the operator replaces each  */
+    /* face with a frame of strut faces inset from its edges by `thickness`,     */
+    /* shifted by `offset`. `use_replace` removes the original faces;            */
+    /* `use_boundary` also wires open boundary edges; `use_even_offset` and      */
+    /* `use_relative_offset` adjust how the inset distance scales; `use_crease`  */
+    /* applies `crease_weight` to the new edges; `material_offset` shifts the    */
+    /* material index of the generated faces. Returns true on success, false if  */
+    /* the operator rejected the input.                                          */
+    bool bms_wireframe(BMesh *bm,
+                       BMHeader **faces, int faces_len,
+                       float thickness, float offset,
+                       bool use_replace, bool use_boundary,
+                       bool use_even_offset, bool use_relative_offset,
+                       bool use_crease, float crease_weight,
+                       int material_offset);
+
+    /* Capturing variant of bms_wireframe. Inputs match that function exactly;   */
+    /* additionally reads back the operator's `faces.out` output slot before     */
+    /* finishing. `faces.out` is the buffer of generated strut faces; each is    */
+    /* returned type-erased as a BMHeader*. Up to `out_cap` pointers are copied  */
+    /* into the caller-allocated `out_buf`. Returns the total `faces.out` count  */
+    /* (which may exceed `out_cap`), or -1 if the operator rejected the input.   */
+    int bms_wireframe_out(BMesh *bm,
+                          BMHeader **faces, int faces_len,
+                          float thickness, float offset,
+                          bool use_replace, bool use_boundary,
+                          bool use_even_offset, bool use_relative_offset,
+                          bool use_crease, float crease_weight,
+                          int material_offset,
+                          BMHeader **out_buf, int out_cap);
+
     /* Extrude a region of faces, forwarding the operator's                      */
     /* `use_normal_from_adjacent` slot. Marks each input face with BM_ELEM_TAG    */
     /* and passes them as the operator's `geom` input. `use_keep_orig`,           */

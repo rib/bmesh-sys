@@ -508,6 +508,74 @@ unsafe extern "C" {
         out_cap: c_int,
     ) -> c_int;
 
+    /// Wireframes a marked face region, replacing each face with a frame of
+    /// strut faces.
+    ///
+    /// `faces` points to `faces_len` `*mut BMHeader` face pointers passed as
+    /// the operator's `faces` input. `thickness` and `offset` control the
+    /// inset distance and shift of the struts. `use_replace`, `use_boundary`,
+    /// `use_even_offset`, `use_relative_offset`, and `use_crease` toggle the
+    /// corresponding operator behaviours; `crease_weight` and `material_offset`
+    /// are forwarded to their slots.
+    ///
+    /// Returns `false` if the operator rejected the input.
+    ///
+    /// # Safety
+    ///
+    /// `bm` must be a valid mesh. `faces` must be valid for `faces_len`
+    /// elements. All referenced elements must belong to `bm`.
+    pub fn bms_wireframe(
+        bm: *mut BMesh,
+        faces: *mut *mut BMHeader,
+        faces_len: c_int,
+        thickness: f32,
+        offset: f32,
+        use_replace: bool,
+        use_boundary: bool,
+        use_even_offset: bool,
+        use_relative_offset: bool,
+        use_crease: bool,
+        crease_weight: f32,
+        material_offset: c_int,
+    ) -> bool;
+
+    /// Capturing variant of [`bms_wireframe`] that reads back the operator's
+    /// `faces.out` output slot.
+    ///
+    /// The inputs behave exactly as for [`bms_wireframe`]. After execution, the
+    /// operator's `faces.out` slot holds the generated strut faces. Each is
+    /// returned type-erased as a `*mut BMHeader` (the header is the first field
+    /// of every element).
+    ///
+    /// Up to `out_cap` pointers are written into the caller-allocated
+    /// `out_buf`. The return value is the total `faces.out` element count, which
+    /// may exceed `out_cap`; in that case `out_buf` holds the first `out_cap`
+    /// elements and the caller may re-query with a larger buffer. Returns `-1`
+    /// if the operator rejected the input (no output is written in that case).
+    ///
+    /// # Safety
+    ///
+    /// `bm` must be a valid mesh. `faces` must be valid for `faces_len`
+    /// elements. All referenced elements must belong to `bm`. `out_buf` must be
+    /// valid for at least `out_cap` `*mut BMHeader` writes (or null when
+    /// `out_cap == 0`).
+    pub fn bms_wireframe_out(
+        bm: *mut BMesh,
+        faces: *mut *mut BMHeader,
+        faces_len: c_int,
+        thickness: f32,
+        offset: f32,
+        use_replace: bool,
+        use_boundary: bool,
+        use_even_offset: bool,
+        use_relative_offset: bool,
+        use_crease: bool,
+        crease_weight: f32,
+        material_offset: c_int,
+        out_buf: *mut *mut BMHeader,
+        out_cap: c_int,
+    ) -> c_int;
+
     /// Extrudes a region of faces while forwarding the operator's
     /// `use_normal_from_adjacent` slot.
     ///

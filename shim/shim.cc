@@ -1447,6 +1447,111 @@ extern "C"
         return out_count;
     }
 
+    bool bms_wireframe(BMesh *bm,
+                       BMHeader **faces, int faces_len,
+                       float thickness, float offset,
+                       bool use_replace, bool use_boundary,
+                       bool use_even_offset, bool use_relative_offset,
+                       bool use_crease, float crease_weight,
+                       int material_offset)
+    {
+        using namespace blender;
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "wireframe faces=%eb thickness=%f offset=%f "
+                          "use_replace=%b use_boundary=%b use_even_offset=%b "
+                          "use_relative_offset=%b use_crease=%b crease_weight=%f "
+                          "material_offset=%i",
+                          reinterpret_cast<BMHeader **>(faces),
+                          faces_len,
+                          thickness,
+                          offset,
+                          use_replace,
+                          use_boundary,
+                          use_even_offset,
+                          use_relative_offset,
+                          use_crease,
+                          crease_weight,
+                          material_offset))
+        {
+            return false;
+        }
+
+        BMO_op_exec(bm, &op);
+        BMO_op_finish(bm, &op);
+        return true;
+    }
+
+    /*
+     * Capturing variant of bms_wireframe: runs the operator and reads back its
+     * `faces.out` output slot before finishing. The inputs match bms_wireframe
+     * exactly. After execution the operator's `faces.out` slot holds the strut
+     * faces the operation generated. Each face is returned type-erased as a
+     * BMHeader* (the header is the first field of every element). Up to
+     * `out_cap` pointers are copied into the caller-allocated `out_buf`; the
+     * return value is the total `faces.out` element count, which may exceed
+     * `out_cap` (the caller can re-query with a larger buffer). The slot is
+     * read before BMO_op_finish frees it.
+     *
+     * Returns -1 if BMO_op_initf rejected the input.
+     */
+    int bms_wireframe_out(BMesh *bm,
+                          BMHeader **faces, int faces_len,
+                          float thickness, float offset,
+                          bool use_replace, bool use_boundary,
+                          bool use_even_offset, bool use_relative_offset,
+                          bool use_crease, float crease_weight,
+                          int material_offset,
+                          BMHeader **out_buf, int out_cap)
+    {
+        using namespace blender;
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "wireframe faces=%eb thickness=%f offset=%f "
+                          "use_replace=%b use_boundary=%b use_even_offset=%b "
+                          "use_relative_offset=%b use_crease=%b crease_weight=%f "
+                          "material_offset=%i",
+                          reinterpret_cast<BMHeader **>(faces),
+                          faces_len,
+                          thickness,
+                          offset,
+                          use_replace,
+                          use_boundary,
+                          use_even_offset,
+                          use_relative_offset,
+                          use_crease,
+                          crease_weight,
+                          material_offset))
+        {
+            return -1;
+        }
+
+        BMO_op_exec(bm, &op);
+
+        /* Walk the `faces.out` element buffer (generated strut faces). */
+        int out_count = 0;
+        {
+            BMOIter oiter;
+            BMHeader *ele = static_cast<BMHeader *>(
+                BMO_iter_new(&oiter, op.slots_out, "faces.out", BM_FACE));
+            for (; ele; ele = static_cast<BMHeader *>(BMO_iter_step(&oiter)))
+            {
+                if (out_count < out_cap)
+                {
+                    out_buf[out_count] = ele;
+                }
+                out_count++;
+            }
+        }
+
+        BMO_op_finish(bm, &op);
+        return out_count;
+    }
+
     bool bms_extrude_face_region_normal_from_adjacent(BMesh *bm,
                                                       BMFace **faces, int faces_len,
                                                       bool use_keep_orig,
