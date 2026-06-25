@@ -927,6 +927,48 @@ unsafe extern "C" {
         vmesh_method: c_int,
     ) -> bool;
 
+    /// Bevel as [`bms_bevel`], but with the per-element bevel-weight gate
+    /// enabled. The parameter surface and element-buffer semantics match
+    /// [`bms_bevel`] exactly; the difference is that the named float
+    /// customdata layers `"bevel_weight_vert"` (vertex domain) and
+    /// `"bevel_weight_edge"` (edge domain) locally scale the resolved offset
+    /// (`effective_offset = resolved_offset * weight`).
+    ///
+    /// The caller must create and populate those layers before calling — add
+    /// them with [`bms_layer_add_named`] (domain `0`/`1`, type `CD_PROP_FLOAT`)
+    /// and write per-element values with [`bms_elem_set_float`]. A domain whose
+    /// layer is absent contributes a zero weight (its geometry gets no offset).
+    ///
+    /// Returns false only if the underlying entry could not run; the
+    /// `offset <= 0.0` case returns true as a no-op. Output geometry is mutated
+    /// in place.
+    ///
+    /// # Safety
+    /// `bm` must be a valid mesh and `geom` must point to `geom_len` valid
+    /// element pointers belonging to `bm`.
+    pub fn bms_bevel_weighted(
+        bm: *mut BMesh,
+        geom: *mut *mut BMHeader,
+        geom_len: c_int,
+        offset: f32,
+        offset_type: c_int,
+        segments: c_int,
+        profile: f32,
+        profile_type: c_int,
+        affect: c_int,
+        clamp_overlap: bool,
+        material: c_int,
+        loop_slide: bool,
+        mark_seam: bool,
+        mark_sharp: bool,
+        harden_normals: bool,
+        face_strength_mode: c_int,
+        miter_outer: c_int,
+        miter_inner: c_int,
+        spread: f32,
+        vmesh_method: c_int,
+    ) -> bool;
+
     /// Invoke BMesh's `dissolve_verts` BMOP on the supplied vertex set.
     /// Both BMOP slot parameters are forwarded explicitly:
     ///
@@ -3154,6 +3196,95 @@ mod tests {
                 faces.len() as c_int,
                 /* use_keep_orig */ true,
                 /* skip_input_flip */ true,
+            );
+            assert!(ok);
+
+            bms_mesh_free(bm);
+        }
+    }
+
+    // A direct `BM_mesh_bevel` call enables per-element operator flags when the
+    // mesh carries tool flags; those flags index a per-element slot that only
+    // exists inside an operator tool-flag bracket. `bms_bevel_weighted` must set
+    // that bracket up itself (the slot-form `bms_bevel` gets it from the operator
+    // executor). `bms_mesh_create` always builds a tool-flagged mesh, so this
+    // exercises the path that previously null-dereferenced.
+    #[test]
+    fn bevel_weighted_runs_on_toolflagged_mesh() {
+        unsafe {
+            let bm = bms_mesh_create();
+            assert!(!bm.is_null());
+
+            // Two quads sharing a middle edge, folded so the shared edge is
+            // manifold (the only edge the weighted shim tags and bevels).
+            let coords: [[f32; 3]; 6] = [
+                [0.0, 0.0, 0.0],
+                [1.0, 0.0, 0.0],
+                [1.0, 1.0, 0.0],
+                [0.0, 1.0, 0.0],
+                [1.0, 0.0, 1.0],
+                [0.0, 1.0, 1.0],
+            ];
+            let mut verts = [core::ptr::null_mut::<BMVert>(); 6];
+            for (slot, co) in verts.iter_mut().zip(coords.iter()) {
+                *slot = bms_vert_create(bm, co.as_ptr());
+                assert!(!slot.is_null());
+            }
+
+            let quad0 = [verts[0], verts[1], verts[2], verts[3]];
+            let quad1 = [verts[1], verts[4], verts[5], verts[2]];
+            let f0 = bms_face_create_verts(bm, quad0.as_ptr(), 4, true);
+            let f1 = bms_face_create_verts(bm, quad1.as_ptr(), 4, true);
+            assert!(!f0.is_null());
+            assert!(!f1.is_null());
+
+            // Register the weight layers the weighted path consults and give
+            // the shared edge a non-zero weight so it actually bevels.
+            let vert_name = std::ffi::CString::new("bevel_weight_vert").unwrap();
+            let edge_name = std::ffi::CString::new("bevel_weight_edge").unwrap();
+            let vert_off = bms_layer_add_named(
+                bm,
+                BmsDomain::Vert as c_int,
+                CdType::Float as c_int,
+                vert_name.as_ptr(),
+            );
+            let edge_off = bms_layer_add_named(
+                bm,
+                BmsDomain::Edge as c_int,
+                CdType::Float as c_int,
+                edge_name.as_ptr(),
+            );
+            assert!(vert_off >= 0);
+            assert!(edge_off >= 0);
+
+            let shared = bms_edge_exists(verts[1], verts[2]);
+            assert!(!shared.is_null());
+            bms_elem_set_float(shared.cast(), edge_off, 1.0);
+            bms_elem_set_float(verts[1].cast(), vert_off, 1.0);
+            bms_elem_set_float(verts[2].cast(), vert_off, 1.0);
+
+            let mut geom: [*mut BMHeader; 1] = [shared.cast()];
+            let ok = bms_bevel_weighted(
+                bm,
+                geom.as_mut_ptr(),
+                geom.len() as c_int,
+                /* offset */ 0.1,
+                /* offset_type OFFSET */ 0,
+                /* segments */ 1,
+                /* profile */ 0.5,
+                /* profile_type SUPERELLIPSE */ 0,
+                /* affect EDGES */ 1,
+                /* clamp_overlap */ false,
+                /* material */ -1,
+                /* loop_slide */ true,
+                /* mark_seam */ false,
+                /* mark_sharp */ false,
+                /* harden_normals */ false,
+                /* face_strength_mode NONE */ 0,
+                /* miter_outer SHARP */ 0,
+                /* miter_inner SHARP */ 0,
+                /* spread */ 0.0,
+                /* vmesh_method ADJ */ 0,
             );
             assert!(ok);
 

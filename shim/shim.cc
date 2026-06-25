@@ -19,6 +19,7 @@
 #include "intern/bmesh_construct.hh"
 #include "intern/bmesh_interp.hh"
 #include "intern/bmesh_operator_api.hh"
+#include "tools/bmesh_bevel.hh"
 #include "BKE_customdata.hh"
 #include "BLI_heap.h"
 #include "BLI_math_geom.h"
@@ -2334,6 +2335,131 @@ extern "C"
 
         BMO_op_exec(bm, &op);
         BMO_op_finish(bm, &op);
+        return true;
+    }
+
+    /* ---- Bevel with per-element weights (BMesh: BM_mesh_bevel) ---- */
+    /*
+     * The `bevel` BMOP always drives BM_mesh_bevel with its `use_weights`
+     * argument hard-wired off, so the per-element bevel-weight customdata
+     * layers are never consulted. This sibling calls BM_mesh_bevel directly
+     * with `use_weights` enabled, so the named float layers "bevel_weight_vert"
+     * (vdata) and "bevel_weight_edge" (edata) scale the local offset
+     * (effective_offset = resolved_offset * weight, applied as an offset
+     * prescale before vertex-mesh placement). The layer byte offsets are
+     * resolved by name; a missing layer resolves to -1, which the solver
+     * treats as a zero weight.
+     *
+     * The mixed vert/edge element buffer is flushed into BM_ELEM_TAG exactly
+     * as the BMOP does (manifold edges only, plus their incident verts), since
+     * BM_mesh_bevel operates on tagged geometry. Face / vertex normals are
+     * refreshed first, as the offset solver reads them. Output geometry is
+     * mutated in place; the newly tagged result elements are not harvested.
+     */
+    bool bms_bevel_weighted(BMesh *bm,
+                            BMHeader **geom, int geom_len,
+                            float offset,
+                            int offset_type,
+                            int segments,
+                            float profile,
+                            int profile_type,
+                            int affect,
+                            bool clamp_overlap,
+                            int material,
+                            bool loop_slide,
+                            bool mark_seam,
+                            bool mark_sharp,
+                            bool harden_normals,
+                            int face_strength_mode,
+                            int miter_outer,
+                            int miter_inner,
+                            float spread,
+                            int vmesh_method)
+    {
+        if (!(offset > 0.0f))
+        {
+            return true;
+        }
+
+        {
+            BMFace *f;
+            BMIter face_iter;
+            BM_ITER_MESH(f, &face_iter, bm, BM_FACES_OF_MESH)
+            {
+                BM_face_normal_update(f);
+            }
+            BMVert *v;
+            BMIter vert_iter;
+            BM_ITER_MESH(v, &vert_iter, bm, BM_VERTS_OF_MESH)
+            {
+                BM_vert_normal_update_all(v);
+            }
+        }
+
+        /* Flush the element buffer into BM_ELEM_TAG; BM_mesh_bevel operates on
+         * tagged verts / edges. Mirror the BMOP's manifold-edge gating. */
+        BM_mesh_elem_hflag_disable_all(bm, BM_VERT | BM_EDGE | BM_FACE, BM_ELEM_TAG, false);
+        for (int i = 0; i < geom_len; i++)
+        {
+            BMHeader *h = geom[i];
+            if (h->htype == BM_VERT)
+            {
+                BM_elem_flag_enable(reinterpret_cast<BMVert *>(h), BM_ELEM_TAG);
+            }
+            else if (h->htype == BM_EDGE)
+            {
+                BMEdge *e = reinterpret_cast<BMEdge *>(h);
+                if (BM_edge_is_manifold(e))
+                {
+                    BM_elem_flag_enable(e, BM_ELEM_TAG);
+                    BM_elem_flag_enable(e->v1, BM_ELEM_TAG);
+                    BM_elem_flag_enable(e->v2, BM_ELEM_TAG);
+                }
+            }
+        }
+
+        const int bweight_offset_vert =
+            CustomData_get_offset_named(&bm->vdata, CD_PROP_FLOAT, "bevel_weight_vert");
+        const int bweight_offset_edge =
+            CustomData_get_offset_named(&bm->edata, CD_PROP_FLOAT, "bevel_weight_edge");
+
+        /* BM_mesh_bevel sets per-element operator flags via BMO_vert_flag_enable
+         * when bm->use_toolflags is on; that indexes the per-element tool-flag
+         * slot at bm->toolflag_index, which only exists inside an operator
+         * tool-flag bracket. Calling BM_mesh_bevel directly (rather than through
+         * the operator executor) skips that bracket, leaving the slot array null
+         * and dereferenced. Reproduce the minimal bracket the executor sets up:
+         * ensure the tool-flag pools exist, then push a flag layer for the call
+         * and pop it afterwards. */
+        BM_mesh_elem_toolflags_ensure(bm);
+        BMO_push(bm, nullptr);
+
+        BM_mesh_bevel(bm,
+                      offset,
+                      offset_type,
+                      profile_type,
+                      segments,
+                      profile,
+                      affect != 0,
+                      /*use_weights=*/true,
+                      /*limit_offset=*/clamp_overlap,
+                      /*dvert=*/nullptr,
+                      /*vertex_group=*/-1,
+                      material,
+                      loop_slide,
+                      mark_seam,
+                      mark_sharp,
+                      harden_normals,
+                      face_strength_mode,
+                      miter_outer,
+                      miter_inner,
+                      spread,
+                      /*custom_profile=*/nullptr,
+                      vmesh_method,
+                      bweight_offset_vert,
+                      bweight_offset_edge);
+
+        BMO_pop(bm);
         return true;
     }
 

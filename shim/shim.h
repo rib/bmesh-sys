@@ -546,6 +546,46 @@ extern "C"
                    float spread,
                    int vmesh_method);
 
+    /* Bevel as `bms_bevel`, but with the per-element bevel-weight gate ON.
+     * Calls BMesh's `BM_mesh_bevel` entry directly with `use_weights` enabled
+     * (the `bevel` BMOP that `bms_bevel` drives always passes this flag off,
+     * so it ignores the weight layers). When enabled, the named float layers
+     * "bevel_weight_vert" (vertex domain) and "bevel_weight_edge" (edge
+     * domain) locally scale the resolved offset, applied as a prescale before
+     * placement: effective_offset = resolved_offset * weight.
+     *
+     * The caller is responsible for creating and populating those layers
+     * before calling — e.g. via `bms_layer_add_named(bm, 0, CD_PROP_FLOAT,
+     * "bevel_weight_vert")` / `(bm, 1, CD_PROP_FLOAT, "bevel_weight_edge")`
+     * and `bms_elem_set_float`. A missing layer is treated as a zero weight
+     * for that domain (the affected geometry collapses to no offset).
+     *
+     * Parameter surface, element-buffer semantics (manifold-edge gating),
+     * normal refresh, and the `offset <= 0` no-op all match `bms_bevel`.
+     * `clamp_overlap` maps to the solver's offset-limiting pass. Output
+     * geometry is mutated in place; the result element slots are not surfaced.
+     *
+     * Returns true on success (including the `offset <= 0` no-op). */
+    bool bms_bevel_weighted(BMesh *bm,
+                            BMHeader **geom, int geom_len,
+                            float offset,
+                            int offset_type,
+                            int segments,
+                            float profile,
+                            int profile_type,
+                            int affect,
+                            bool clamp_overlap,
+                            int material,
+                            bool loop_slide,
+                            bool mark_seam,
+                            bool mark_sharp,
+                            bool harden_normals,
+                            int face_strength_mode,
+                            int miter_outer,
+                            int miter_inner,
+                            float spread,
+                            int vmesh_method);
+
     /* Invoke BMesh's `dissolve_verts` operator on the supplied vertex set.
      * Exposes both BMOP slot parameters explicitly:
      *
