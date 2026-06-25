@@ -1726,6 +1726,37 @@ extern "C"
                                   int iterations, float factor,
                                   BMHeader **out_geom_buf, int out_cap);
 
+    /* Maps to BMesh's `region_extend` operator, which grows or shrinks a
+     * region of geometry by one ring of incident elements. The input `geom`
+     * is a mixed vert/edge/face buffer, forwarded to the operator's `geom`
+     * element-buffer slot (`%eb`); it may be null when `geom_len` is zero.
+     * The three bool slots are forwarded explicitly:
+     *
+     *   - `use_contract`  — find the boundary inside the region (shrink)
+     *                       instead of outside it (grow).
+     *   - `use_faces`     — extend across faces rather than edges, so the
+     *                       output is faces instead of verts and edges.
+     *   - `use_face_step` — step over connected faces while walking.
+     *
+     * The operator's `geom.out` slot — the computed ring of boundary
+     * geometry — is a mixed vert/edge/face buffer; each entry is returned
+     * type-erased as a BMHeader* (the header is the first field of every
+     * element). Up to `out_geom_cap` pointers are written into the
+     * caller-allocated `out_geom`; the return value is the slot's true
+     * total element count.
+     *
+     * Return value:
+     *   -1  on operator init failure.
+     *   >= 0 on success: the total number of output elements. Up to
+     *        min(total, out_geom_cap) pointers are written to `out_geom`.
+     *        A return greater than `out_geom_cap` signals truncation.
+     *
+     * `out_geom` may be null only when `out_geom_cap` is zero. */
+    int bms_region_extend(BMesh *bm,
+                          BMHeader **geom, int geom_len,
+                          bool use_contract, bool use_faces, bool use_face_step,
+                          BMHeader **out_geom, int out_geom_cap);
+
     /* Invoke BMesh's `rotate_edges` operator on the supplied edge set. Each
      * eligible edge — one shared by exactly two faces whose union forms a
      * quad — is rotated (spun) to its other diagonal; ineligible edges are

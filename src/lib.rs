@@ -1798,6 +1798,39 @@ unsafe extern "C" {
         out_cap: c_int,
     ) -> c_int;
 
+    /// Invoke BMesh's `region_extend` BMOP, which grows or shrinks a region
+    /// of geometry by one ring of incident elements. `geom` is a mixed
+    /// vert/edge/face buffer forwarded to the operator's `geom` element-buffer
+    /// slot; it may be null when `geom_len` is zero. The three bool slots are
+    /// forwarded explicitly:
+    ///
+    /// - `use_contract` — find the boundary inside the region (shrink) rather
+    ///   than outside it (grow).
+    /// - `use_faces` — extend across faces rather than edges, so the output is
+    ///   faces instead of verts and edges.
+    /// - `use_face_step` — step over connected faces while walking.
+    ///
+    /// The `geom.out` slot is harvested into `out_geom`, which must be valid
+    /// for at least `out_geom_cap` `*mut BMHeader` slots (it may be null only
+    /// when `out_geom_cap` is zero). Output entries are type-erased
+    /// [`BMHeader`] pointers that may refer to verts, edges, or faces
+    /// interchangeably; inspect each header's element type before casting.
+    ///
+    /// Element pointers must remain valid for the duration of the call.
+    /// Return value semantics match [`bms_dissolve_faces_out`]: `-1` on
+    /// operator init failure, otherwise the slot's true total element count.
+    /// A return greater than `out_geom_cap` signals the buffer was truncated.
+    pub fn bms_region_extend(
+        bm: *mut BMesh,
+        geom: *mut *mut BMHeader,
+        geom_len: c_int,
+        use_contract: bool,
+        use_faces: bool,
+        use_face_step: bool,
+        out_geom: *mut *mut BMHeader,
+        out_geom_cap: c_int,
+    ) -> c_int;
+
     /// Invoke BMesh's `rotate_edges` BMOP on the supplied edge set. Each
     /// eligible edge — one shared by exactly two faces whose union forms a
     /// quad — is rotated (spun) to its other diagonal; ineligible edges are

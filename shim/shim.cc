@@ -3491,6 +3491,44 @@ extern "C"
         return n;
     }
 
+    /* ---- Region extend (BMesh operator: region_extend) ---- */
+
+    int bms_region_extend(BMesh *bm,
+                          BMHeader **geom, int geom_len,
+                          bool use_contract, bool use_faces, bool use_face_step,
+                          BMHeader **out_geom, int out_geom_cap)
+    {
+        using namespace blender;
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "region_extend geom=%eb use_contract=%b use_faces=%b "
+                          "use_face_step=%b",
+                          reinterpret_cast<BMHeader **>(geom),
+                          geom_len,
+                          use_contract,
+                          use_faces,
+                          use_face_step))
+        {
+            return -1;
+        }
+        BMO_op_exec(bm, &op);
+
+        /* Walk the mixed vert/edge/face `geom.out` element buffer. */
+        BMOpSlot *slot = BMO_slot_get(op.slots_out, "geom.out");
+        const int n = slot->len;
+        const int n_copy = (n < out_geom_cap) ? n : out_geom_cap;
+        BMHeader **slot_items = reinterpret_cast<BMHeader **>(slot->data.buf);
+        for (int i = 0; i < n_copy; ++i)
+        {
+            out_geom[i] = slot_items[i];
+        }
+
+        BMO_op_finish(bm, &op);
+        return n;
+    }
+
     /* ---- Rotate edges (BMesh operator: rotate_edges) ---- */
 
     bool bms_rotate_edges(BMesh *bm,
