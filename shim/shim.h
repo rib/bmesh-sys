@@ -122,6 +122,15 @@ extern "C"
      * null when out_cap is 0 to obtain just the count. */
     int bms_faces_read_mat_nr(BMesh *bm, short *out, int out_cap);
 
+    /* Copy each edge's header flags (hflag) into out[], one int per edge, in
+     * edge iteration order (the same order bms_snapshot writes edge data, so
+     * the i-th value aligns with the i-th snapshot edge). The flags are a
+     * bitfield (BM_ELEM_SELECT, BM_ELEM_SEAM, BM_ELEM_SMOOTH, etc.). Up to
+     * out_cap values are written; the true edge count is always returned, so
+     * callers detect truncation when the count exceeds out_cap. out may be
+     * null when out_cap is 0 to obtain just the count. */
+    int bms_edges_read_hflag(BMesh *bm, int *out, int out_cap);
+
     /* Destructively triangulate a single face in place. Wraps BMesh's
      * `BM_face_triangulate` along with the temporary MemArena (and, for
      * `MOD_TRIANGULATE_NGON_BEAUTY`, the BLI Heap) that it requires.
