@@ -2601,6 +2601,20 @@ unsafe extern "C" {
         out_vert_normals: *mut f32,
         out_cap: c_int,
     ) -> c_int;
+
+    /// Copies each face's material-slot index (`mat_nr`) into `out` as one
+    /// `c_short` per face, in the same face iteration order as
+    /// [`bms_snapshot`]'s face read-back, so the i-th written value
+    /// corresponds to the i-th snapshot face. Up to `out_cap` values are
+    /// written; the true face count is always returned, so a return value
+    /// greater than `out_cap` signals truncation. `out` must be valid for
+    /// `out_cap` `c_short`s, or may be null when `out_cap` is 0 to obtain
+    /// just the count. `bm` must be a valid, non-null mesh pointer.
+    pub fn bms_faces_read_mat_nr(
+        bm: *mut BMesh,
+        out: *mut std::os::raw::c_short,
+        out_cap: c_int,
+    ) -> c_int;
 }
 
 // ---- Customdata layer access ----

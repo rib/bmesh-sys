@@ -114,6 +114,14 @@ extern "C"
      * true count is still returned so callers can detect truncation. */
     int bms_vert_normals_read(BMesh *bm, float *out_vert_normals, int out_cap);
 
+    /* Copy each face's material-slot index (mat_nr) into out[], one short per
+     * face, in face iteration order (the same order bms_snapshot writes face
+     * data, so the i-th value aligns with the i-th snapshot face). Up to
+     * out_cap values are written; the true face count is always returned, so
+     * callers detect truncation when the count exceeds out_cap. out may be
+     * null when out_cap is 0 to obtain just the count. */
+    int bms_faces_read_mat_nr(BMesh *bm, short *out, int out_cap);
+
     /* Destructively triangulate a single face in place. Wraps BMesh's
      * `BM_face_triangulate` along with the temporary MemArena (and, for
      * `MOD_TRIANGULATE_NGON_BEAUTY`, the BLI Heap) that it requires.

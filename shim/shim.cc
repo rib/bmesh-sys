@@ -818,6 +818,26 @@ extern "C"
         return vi;
     }
 
+    /* Copy each face's material-slot index (f->mat_nr) into out[], one short
+     * per face, in BM_FACES_OF_MESH iteration order (the same order
+     * bms_snapshot writes face data). Up to out_cap values are written; the
+     * true face count is always returned, so callers can detect truncation
+     * when the count exceeds out_cap. out may be null when out_cap is 0 to
+     * obtain just the count. */
+    int bms_faces_read_mat_nr(BMesh *bm, short *out, int out_cap)
+    {
+        BMFace *f;
+        BMIter iter;
+        int fi = 0;
+        BM_ITER_MESH(f, &iter, bm, BM_FACES_OF_MESH)
+        {
+            if (fi < out_cap)
+                out[fi] = f->mat_nr;
+            fi++;
+        }
+        return fi;
+    }
+
     /* ---- Customdata layer access ---- */
     /*
      * The bms_*_layer_add_* functions register a per-element CD layer on
