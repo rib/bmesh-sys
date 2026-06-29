@@ -2396,6 +2396,62 @@ unsafe extern "C" {
         out_face_count: *mut c_int,
     ) -> c_int;
 
+    /// Maps to BMesh's `duplicate` BMOP driven through its `dest` pointer
+    /// slot: clone the `geom` selection out of the source mesh `bm` and into
+    /// a *separate* destination mesh `bm_dst`. Where [`bms_duplicate`] leaves
+    /// `dest` unset (clones born in `bm`), this wires `bm_dst` as the
+    /// destination so the clones are created there. `bm_dst` may be empty or
+    /// already hold geometry on entry; its operator-flag pools are ensured
+    /// before exec.
+    ///
+    /// `geom` is a mixed array of `*mut BMHeader` (verts/edges/faces) of
+    /// length `geom_len` from the *source* mesh; it may be null only when
+    /// `geom_len` is zero. `use_edge_flip_from_face` forwards the bool
+    /// in-slot of the same name. Element pointers must remain valid for the
+    /// duration of the call.
+    ///
+    /// Outputs mirror [`bms_duplicate`]: `out_geom` receives the `geom.out`
+    /// buffer, and the five `*_map` buffers receive their slots as flat
+    /// `(src, dst)` couples (`buf[2*i]` key, `buf[2*i+1]` value), each
+    /// holding at least `2 * cap` pointers. In the cross-mesh case the map
+    /// keys point into `bm` and the mapped values into `bm_dst`. Per-slot
+    /// couple counts are written through the `out_*_count` out-params. Any
+    /// buffer may be null with its cap `0` to skip that slot.
+    ///
+    /// After the call the clones are ordinary elements of `bm_dst` and can be
+    /// walked with the whole-mesh iteration entry points.
+    ///
+    /// Returns the clone count. The operator builds `geom.out` by scanning
+    /// the source mesh, so cross-mesh it comes back empty; in that case the
+    /// returned count is derived from the correspondence maps
+    /// (`(vert + edge + face) couples / 2`), matching the `BM_ALL_NOLOOP`
+    /// element count [`bms_duplicate`] returns in-place. Returns -1 if the
+    /// operator rejected the input (no out-params written).
+    pub fn bms_duplicate_into_dest(
+        bm: *mut BMesh,
+        geom: *mut *mut BMHeader,
+        geom_len: c_int,
+        use_edge_flip_from_face: bool,
+        bm_dst: *mut BMesh,
+        out_geom: *mut *mut BMHeader,
+        out_geom_cap: c_int,
+        out_boundary_map: *mut *mut BMHeader,
+        out_boundary_cap: c_int,
+        out_boundary_count: *mut c_int,
+        out_isovert_map: *mut *mut BMVert,
+        out_isovert_cap: c_int,
+        out_isovert_count: *mut c_int,
+        out_vert_map: *mut *mut BMVert,
+        out_vert_cap: c_int,
+        out_vert_count: *mut c_int,
+        out_edge_map: *mut *mut BMEdge,
+        out_edge_cap: c_int,
+        out_edge_count: *mut c_int,
+        out_face_map: *mut *mut BMFace,
+        out_face_cap: c_int,
+        out_face_count: *mut c_int,
+    ) -> c_int;
+
     /// Invoke BMesh's `split` operator on the `geom` set, duplicating it
     /// and tearing the copy off as a topologically disjoint set within the
     /// same mesh. `geom` (length `geom_len`) is a mixed vert/edge/face

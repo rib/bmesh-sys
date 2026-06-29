@@ -1307,6 +1307,62 @@ extern "C"
                       BMFace **out_face_map, int out_face_cap,
                       int *out_face_count);
 
+    /* Maps to BMesh's `duplicate` BMOP driven through its `dest` pointer
+     * slot: clone the `geom` selection out of the source mesh `bm` and into
+     * a *separate* destination mesh `bm_dst`. Unlike `bms_duplicate` (which
+     * leaves `dest` unset so clones are born in `bm`), here the clones are
+     * created in `bm_dst`, which may be empty or already hold geometry on
+     * entry.
+     *
+     * Inputs mirror `bms_duplicate`:
+     *   - `geom` / `geom_len`  — mixed vert / edge / face selection from the
+     *                            *source* mesh, forwarded via `%eb`
+     *                            (BM_VERT | BM_EDGE | BM_FACE). May be null
+     *                            with `geom_len == 0`.
+     *   - `use_edge_flip_from_face` — forwards the bool in-slot of the same
+     *                            name.
+     *   - `bm_dst`             — the destination mesh wired into the
+     *                            operator's `dest` slot. Its operator-flag
+     *                            pools are ensured before exec so the clones
+     *                            can be created and marked there. After the
+     *                            call `bm_dst` is an ordinary mesh whose
+     *                            verts / edges / faces (the clones) can be
+     *                            walked with the normal whole-mesh iteration
+     *                            entry points.
+     *
+     * Outputs mirror `bms_duplicate`: `out_geom` receives the `geom.out`
+     * element buffer, and the five `*_map.out` slots are emitted as flat
+     * (src, dst) couples (`buf[2*i]` key, `buf[2*i+1]` value) up to each
+     * `_cap`, with the full couple count reported through the matching
+     * `_count` out-param. In the cross-mesh case the map keys live in `bm`
+     * and the mapped values live in `bm_dst`. Any buffer may be null with
+     * its cap `0` to skip that slot.
+     *
+     * Return value: the operator builds its `geom.out` buffer by scanning
+     * the *source* mesh for newly created elements, so in the cross-mesh
+     * case (clones born in `bm_dst`) `geom.out` comes back empty. When
+     * `geom.out` is empty this function instead returns the clone count
+     * derived from the correspondence maps — the per-kind maps record each
+     * correspondence in both directions, so the clone count is
+     * (vert_couples + edge_couples + face_couples) / 2, matching the
+     * BM_ALL_NOLOOP element count `bms_duplicate` returns in-place. Returns
+     * -1 if BMO_op_initf rejected the input (no out-params written). */
+    int bms_duplicate_into_dest(BMesh *bm,
+                                BMHeader **geom, int geom_len,
+                                bool use_edge_flip_from_face,
+                                BMesh *bm_dst,
+                                BMHeader **out_geom, int out_geom_cap,
+                                BMHeader **out_boundary_map, int out_boundary_cap,
+                                int *out_boundary_count,
+                                BMVert **out_isovert_map, int out_isovert_cap,
+                                int *out_isovert_count,
+                                BMVert **out_vert_map, int out_vert_cap,
+                                int *out_vert_count,
+                                BMEdge **out_edge_map, int out_edge_cap,
+                                int *out_edge_count,
+                                BMFace **out_face_map, int out_face_cap,
+                                int *out_face_count);
+
     /* Invoke BMesh's `split` operator, which duplicates the supplied
      * geometry and tears the copy off as a topologically disjoint set
      * within the same mesh (the split-off copy replaces the selection's

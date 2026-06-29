@@ -4467,6 +4467,139 @@ extern "C"
         return geom_count;
     }
 
+    /*
+     * Maps to BMesh's `duplicate` BMOP driven through its `dest` pointer
+     * slot: clone the `geom` selection out of source mesh `bm` and into the
+     * separate destination mesh `bm_dst`. Mirrors `bms_duplicate` but wires
+     * `dest=%p` so the clones are created in `bm_dst` instead of `bm`.
+     *
+     * The operator marks each new element in `bm_dst` with its internal
+     * "new" operator flag, so `bm_dst` must have its operator-flag pools
+     * allocated before exec (the executor only ensures them on the source
+     * mesh). We call BM_mesh_elem_toolflags_ensure(bm_dst) up front so the
+     * clones receive flag storage as they are created.
+     *
+     * The operator's own `geom.out` buffer is built by scanning the *source*
+     * mesh for newly flagged elements; cross-mesh those elements live in
+     * `bm_dst`, so `geom.out` comes back empty. We still read it into
+     * `out_geom` (harmless), but when its count is zero we report the clone
+     * count derived from the correspondence maps instead: each per-kind map
+     * stores every correspondence in both directions, so the clone count is
+     * (vert_couples + edge_couples + face_couples) / 2, matching the
+     * BM_ALL_NOLOOP element count `bms_duplicate` returns for the in-place
+     * case. The destination clones are walked with the normal whole-mesh
+     * iteration entry points after this call returns.
+     *
+     * Returns the clone count, or -1 if BMO_op_initf rejected the input.
+     */
+    int bms_duplicate_into_dest(BMesh *bm,
+                                BMHeader **geom, int geom_len,
+                                bool use_edge_flip_from_face,
+                                BMesh *bm_dst,
+                                BMHeader **out_geom, int out_geom_cap,
+                                BMHeader **out_boundary_map, int out_boundary_cap,
+                                int *out_boundary_count,
+                                BMVert **out_isovert_map, int out_isovert_cap,
+                                int *out_isovert_count,
+                                BMVert **out_vert_map, int out_vert_cap,
+                                int *out_vert_count,
+                                BMEdge **out_edge_map, int out_edge_cap,
+                                int *out_edge_count,
+                                BMFace **out_face_map, int out_face_cap,
+                                int *out_face_count)
+    {
+        using namespace blender;
+
+        /* The destination mesh receives clones flagged with the operator's
+         * internal "new" flag; ensure its operator-flag pools exist so those
+         * flags have storage as the clones are created. */
+        BM_mesh_elem_toolflags_ensure(bm_dst);
+
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "duplicate geom=%eb use_edge_flip_from_face=%b dest=%p",
+                          geom,
+                          geom_len,
+                          use_edge_flip_from_face,
+                          bm_dst))
+        {
+            return -1;
+        }
+
+        BMO_op_exec(bm, &op);
+
+        /* Walk the `geom.out` element buffer. Cross-mesh this is empty (the
+         * operator scans the source mesh for new elements, but the clones
+         * live in `bm_dst`); the loop simply yields nothing in that case. */
+        int geom_count = 0;
+        {
+            BMOIter oiter;
+            BMHeader *ele = static_cast<BMHeader *>(
+                BMO_iter_new(&oiter, op.slots_out, "geom.out", BM_ALL_NOLOOP));
+            for (; ele; ele = static_cast<BMHeader *>(BMO_iter_step(&oiter)))
+            {
+                if (geom_count < out_geom_cap)
+                {
+                    out_geom[geom_count] = ele;
+                }
+                geom_count++;
+            }
+        }
+
+        /* Read a MAP_ELEM slot as flat (key, value) couples and return the
+         * full couple count (independent of `cap`, so the clone-count
+         * fallback below is reliable even when the caller skips a buffer). */
+        auto read_map = [&](const char *slot_name, int restrict_flag,
+                            void **out_buf, int cap, int *out_count) -> int {
+            int count = 0;
+            BMOIter oiter;
+            void *key = BMO_iter_new(&oiter, op.slots_out, slot_name, restrict_flag);
+            for (; key; key = BMO_iter_step(&oiter))
+            {
+                void *val = BMO_iter_map_value_ptr(&oiter);
+                if (count < cap && out_buf)
+                {
+                    out_buf[2 * count] = key;
+                    out_buf[2 * count + 1] = val;
+                }
+                count++;
+            }
+            if (out_count)
+            {
+                *out_count = count;
+            }
+            return count;
+        };
+
+        read_map("boundary_map.out", BM_EDGE,
+                 reinterpret_cast<void **>(out_boundary_map),
+                 out_boundary_cap, out_boundary_count);
+        read_map("isovert_map.out", BM_VERT,
+                 reinterpret_cast<void **>(out_isovert_map),
+                 out_isovert_cap, out_isovert_count);
+        int vert_couples = read_map("vert_map.out", BM_VERT,
+                                    reinterpret_cast<void **>(out_vert_map),
+                                    out_vert_cap, out_vert_count);
+        int edge_couples = read_map("edge_map.out", BM_EDGE,
+                                    reinterpret_cast<void **>(out_edge_map),
+                                    out_edge_cap, out_edge_count);
+        int face_couples = read_map("face_map.out", BM_FACE,
+                                    reinterpret_cast<void **>(out_face_map),
+                                    out_face_cap, out_face_count);
+
+        BMO_op_finish(bm, &op);
+
+        /* Cross-mesh `geom.out` is empty; derive the clone count from the
+         * two-way correspondence maps. */
+        if (geom_count == 0)
+        {
+            geom_count = (vert_couples + edge_couples + face_couples) / 2;
+        }
+        return geom_count;
+    }
+
     /* Invoke BMesh's `split` operator: duplicate `geom` and tear the copy
      * off as a topologically disjoint set within `bm`. See shim.h for the
      * slot mapping and read-back convention. */
