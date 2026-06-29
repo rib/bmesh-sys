@@ -22,6 +22,7 @@
 #include "tools/bmesh_bevel.hh"
 #include "BKE_customdata.hh"
 #include "BLI_heap.h"
+#include "BLI_linklist.h"
 #include "BLI_math_geom.h"
 #include "BLI_math_matrix.h"
 #include "BLI_math_vector.h"
@@ -661,6 +662,60 @@ extern "C"
         BM_mesh_calc_tessellation(bm, span);
     }
 
+    void bms_face_triangulate_with_doubles(BMesh *bm,
+                                           BMFace *f,
+                                           int quad_method,
+                                           int ngon_method,
+                                           bool use_tag,
+                                           BMFace **r_faces_new,
+                                           int *r_faces_new_tot,
+                                           BMFace **r_faces_double,
+                                           int *r_faces_double_tot)
+    {
+        MemArena *pf_arena = BLI_memarena_new(BLI_POLYFILL_ARENA_SIZE, __func__);
+        Heap *pf_heap = nullptr;
+        if (ngon_method == MOD_TRIANGULATE_NGON_BEAUTY) {
+            pf_heap = BLI_heap_new_ex(BLI_POLYFILL_ALLOC_NGON_RESERVE);
+        }
+
+        /* Always thread a real list so the vendored doubles-detection path
+         * never dereferences a null `r_faces_double`. */
+        LinkNode *faces_double = nullptr;
+
+        BM_face_triangulate(bm,
+                            f,
+                            r_faces_new,
+                            r_faces_new_tot,
+                            /*r_edges_new=*/nullptr,
+                            /*r_edges_new_tot=*/nullptr,
+                            &faces_double,
+                            quad_method,
+                            ngon_method,
+                            use_tag,
+                            pf_arena,
+                            pf_heap);
+
+        /* Drain the detected coincident faces into the caller's buffer,
+         * respecting the capacity it advertised via `*r_faces_double_tot`. */
+        const int double_cap = (r_faces_double && r_faces_double_tot) ? *r_faces_double_tot : 0;
+        int double_count = 0;
+        for (LinkNode *node = faces_double; node; node = node->next) {
+            if (double_count < double_cap) {
+                r_faces_double[double_count] = static_cast<BMFace *>(node->link);
+            }
+            double_count++;
+        }
+        if (r_faces_double_tot) {
+            *r_faces_double_tot = double_count;
+        }
+        BLI_linklist_free(faces_double, nullptr);
+
+        BLI_memarena_free(pf_arena);
+        if (pf_heap) {
+            BLI_heap_free(pf_heap, nullptr);
+        }
+    }
+
     void bms_face_triangulate(BMesh *bm,
                               BMFace *f,
                               int quad_method,
@@ -669,29 +724,15 @@ extern "C"
                               BMFace **r_faces_new,
                               int *r_faces_new_tot)
     {
-        MemArena *pf_arena = BLI_memarena_new(BLI_POLYFILL_ARENA_SIZE, __func__);
-        Heap *pf_heap = nullptr;
-        if (ngon_method == MOD_TRIANGULATE_NGON_BEAUTY) {
-            pf_heap = BLI_heap_new_ex(BLI_POLYFILL_ALLOC_NGON_RESERVE);
-        }
-
-        BM_face_triangulate(bm,
-                            f,
-                            r_faces_new,
-                            r_faces_new_tot,
-                            /*r_edges_new=*/nullptr,
-                            /*r_edges_new_tot=*/nullptr,
-                            /*r_faces_double=*/nullptr,
-                            quad_method,
-                            ngon_method,
-                            use_tag,
-                            pf_arena,
-                            pf_heap);
-
-        BLI_memarena_free(pf_arena);
-        if (pf_heap) {
-            BLI_heap_free(pf_heap, nullptr);
-        }
+        bms_face_triangulate_with_doubles(bm,
+                                          f,
+                                          quad_method,
+                                          ngon_method,
+                                          use_tag,
+                                          r_faces_new,
+                                          r_faces_new_tot,
+                                          /*r_faces_double=*/nullptr,
+                                          /*r_faces_double_tot=*/nullptr);
     }
 
     bool bms_snapshot(BMesh *bm,

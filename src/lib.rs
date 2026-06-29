@@ -2599,13 +2599,20 @@ unsafe extern "C" {
     /// When `r_faces_new` is non-null, it must point to a caller-allocated
     /// buffer of at least `f.len - 3` `*mut BMFace` slots and
     /// `*r_faces_new_tot` must be set to `f.len - 3` on entry. On return,
-    /// `*r_faces_new_tot` holds the count of new faces actually written
-    /// (less than `f.len - 3` if some target triangles coincided with
-    /// faces already in the mesh).
+    /// `*r_faces_new_tot` holds the count of new faces written. This count is
+    /// always exactly `f.len - 3`: one new face is emitted for every triangle
+    /// except the final one, which reuses the input face's storage in place.
+    /// Triangles that turn out to coincide with a face already in the mesh do
+    /// **not** shorten this count; they are recorded separately and are only
+    /// observable through [`bms_face_triangulate_with_doubles`].
     ///
     /// Both `r_faces_new` and `r_faces_new_tot` may be null when the new-face
     /// list is not needed. `use_tag` causes the new faces and edges to be
     /// marked with `BM_ELEM_TAG`.
+    ///
+    /// Coincident-triangle input is handled safely (no crash); any detected
+    /// duplicates are simply discarded. Use
+    /// [`bms_face_triangulate_with_doubles`] to recover them.
     pub fn bms_face_triangulate(
         bm: *mut BMesh,
         f: *mut BMFace,
@@ -2614,6 +2621,38 @@ unsafe extern "C" {
         use_tag: bool,
         r_faces_new: *mut *mut BMFace,
         r_faces_new_tot: *mut c_int,
+    );
+
+    /// As [`bms_face_triangulate`], but additionally reports the set of faces
+    /// that BMesh's radial-walk doubles-detection flags as coincident: a
+    /// would-be-new triangle whose three vertices already span an existing
+    /// triangle in the mesh.
+    ///
+    /// `r_faces_new` / `r_faces_new_tot` behave exactly as in
+    /// [`bms_face_triangulate`].
+    ///
+    /// When `r_faces_double` is non-null it must point to a caller-allocated
+    /// buffer of `*mut BMFace` slots, and `*r_faces_double_tot` must hold that
+    /// buffer's capacity on entry. At most `f.len - 2` duplicates can be
+    /// reported, so a buffer of that size never truncates. On return,
+    /// `*r_faces_double_tot` holds the number of coincident faces detected; if
+    /// that exceeds the capacity, only the first `capacity` entries were
+    /// written. Each written entry is one of the faces involved in a
+    /// coincidence, and its vertices match the pre-existing face it coincided
+    /// with (read them through the element-query bindings).
+    ///
+    /// `r_faces_double` and `r_faces_double_tot` may both be null to discard
+    /// the duplicate set. Coincident-triangle input never crashes regardless.
+    pub fn bms_face_triangulate_with_doubles(
+        bm: *mut BMesh,
+        f: *mut BMFace,
+        quad_method: c_int,
+        ngon_method: c_int,
+        use_tag: bool,
+        r_faces_new: *mut *mut BMFace,
+        r_faces_new_tot: *mut c_int,
+        r_faces_double: *mut *mut BMFace,
+        r_faces_double_tot: *mut c_int,
     );
 }
 

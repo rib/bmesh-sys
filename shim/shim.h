@@ -154,6 +154,36 @@ extern "C"
                               BMFace **r_faces_new,
                               int *r_faces_new_tot);
 
+    /* As `bms_face_triangulate`, but additionally surfaces the set of faces
+     * that BMesh's radial-walk doubles-detection flags as coincident: a
+     * would-be-new triangle whose three vertices already span an existing
+     * triangle in the mesh. Internally a real linked list is always threaded
+     * into `BM_face_triangulate`, so coincident-triangle input is handled
+     * safely whether or not the caller wants the duplicate set.
+     *
+     * `r_faces_new` / `r_faces_new_tot` follow the same convention as
+     * `bms_face_triangulate`.
+     *
+     * If `r_faces_double` is non-null it must point to a caller-allocated
+     * buffer, and `*r_faces_double_tot` must hold that buffer's capacity (in
+     * BMFace* entries) on entry. At most `f->len - 2` duplicates can be
+     * reported, so a buffer of that size never truncates. On return,
+     * `*r_faces_double_tot` holds the number of coincident faces detected
+     * (which may exceed the capacity, in which case only the first
+     * `capacity` entries were written). Each written entry is one of the
+     * faces involved in a coincidence; its vertices match the pre-existing
+     * face it coincided with. Both pointers may be null to discard the
+     * duplicate set. */
+    void bms_face_triangulate_with_doubles(BMesh *bm,
+                                           BMFace *f,
+                                           int quad_method,
+                                           int ngon_method,
+                                           bool use_tag,
+                                           BMFace **r_faces_new,
+                                           int *r_faces_new_tot,
+                                           BMFace **r_faces_double,
+                                           int *r_faces_double_tot);
+
     /* Snapshot the mesh into flat buffers. The caller pre-sizes the verts/edges/
      * face_offsets/face_lens buffers using the tot* counts (verts: tot*3 floats,
      * edges: tot*2 ints, face_offsets/face_lens: tot ints). face_verts_cap should
