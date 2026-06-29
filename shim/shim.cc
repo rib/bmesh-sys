@@ -2778,6 +2778,61 @@ extern "C"
         return geom_count;
     }
 
+    bool bms_edgeloop_fill(BMesh *bm,
+                           BMEdge **edges, int edges_len,
+                           int mat_nr,
+                           bool use_smooth)
+    {
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "edgeloop_fill edges=%eb mat_nr=%i use_smooth=%b",
+                          reinterpret_cast<BMHeader **>(edges),
+                          edges_len,
+                          mat_nr,
+                          use_smooth))
+        {
+            return false;
+        }
+        BMO_op_exec(bm, &op);
+        BMO_op_finish(bm, &op);
+        return true;
+    }
+
+    int bms_edgeloop_fill_out(BMesh *bm,
+                              BMEdge **edges, int edges_len,
+                              int mat_nr,
+                              bool use_smooth,
+                              BMFace **out_buf, int out_cap)
+    {
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "edgeloop_fill edges=%eb mat_nr=%i use_smooth=%b",
+                          reinterpret_cast<BMHeader **>(edges),
+                          edges_len,
+                          mat_nr,
+                          use_smooth))
+        {
+            return -1;
+        }
+        BMO_op_exec(bm, &op);
+
+        BMOpSlot *slot = BMO_slot_get(op.slots_out, "faces.out");
+        const int n = slot->len;
+        const int n_copy = (n < out_cap) ? n : out_cap;
+        BMFace **slot_items = reinterpret_cast<BMFace **>(slot->data.buf);
+        for (int i = 0; i < n_copy; ++i)
+        {
+            out_buf[i] = slot_items[i];
+        }
+
+        BMO_op_finish(bm, &op);
+        return n;
+    }
+
     bool bms_reverse_uvs(BMesh *bm, BMFace **faces, int faces_len)
     {
         BMOperator op;

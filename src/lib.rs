@@ -1154,6 +1154,57 @@ unsafe extern "C" {
         out_cap: c_int,
     ) -> c_int;
 
+    /// Invoke BMesh's `edgeloop_fill` BMOP on the supplied edge set. Caps
+    /// each closed loop present in `edges` with a single n-gon face — no
+    /// triangulation, no new vertices, no new edges. Both BMOP slots are
+    /// forwarded explicitly:
+    ///
+    /// - `mat_nr` — material index assigned to each created face.
+    /// - `use_smooth` — set the smooth-shading flag on each created face.
+    ///
+    /// The operator collects each loop's vertices, walks the cycle to order
+    /// them, and creates one face spanning exactly those vertices, skipping
+    /// any loop whose face already exists. Multiple disjoint closed loops in
+    /// a single call each receive their own n-gon. The input is rejected (no
+    /// face created) unless every input edge endpoint carries exactly two
+    /// input edges — i.e. the input is one or more simple closed loops.
+    ///
+    /// `edges` points to an array of `edges_len` edge pointers belonging to
+    /// `bm`; the buffer is read, not modified. The operator's `faces.out`
+    /// slot is not surfaced by this binding. Returns false if the operator
+    /// rejected the input.
+    pub fn bms_edgeloop_fill(
+        bm: *mut BMesh,
+        edges: *mut *mut BMEdge,
+        edges_len: c_int,
+        mat_nr: c_int,
+        use_smooth: bool,
+    ) -> bool;
+
+    /// Capturing variant of [`bms_edgeloop_fill`].
+    ///
+    /// Runs the same `edgeloop_fill` BMOP and additionally copies the
+    /// operator's `faces.out` slot — the n-gon face(s) the fill created —
+    /// into the caller-supplied buffer `out_buf` of capacity `out_cap` slots.
+    ///
+    /// Return value:
+    /// - `-1` on operator init failure (mirrors the `false` return of the
+    ///   non-capturing variant).
+    /// - `>= 0` on success: the *total* number of created faces. Up to
+    ///   `min(total, out_cap)` pointers are written to `out_buf` in the
+    ///   slot's emit order; if `total > out_cap` the buffer was undersized.
+    ///
+    /// `out_buf` may be null only when `out_cap` is zero (size-probing mode).
+    pub fn bms_edgeloop_fill_out(
+        bm: *mut BMesh,
+        edges: *mut *mut BMEdge,
+        edges_len: c_int,
+        mat_nr: c_int,
+        use_smooth: bool,
+        out_buf: *mut *mut BMFace,
+        out_cap: c_int,
+    ) -> c_int;
+
     /// Maps to BMesh's `reverse_uvs` operator: reverses the active UV
     /// layer's per-loop values around each input face (a pure
     /// loop-customdata permutation, no topology change).

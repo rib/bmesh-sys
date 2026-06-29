@@ -775,6 +775,51 @@ extern "C"
                               const float *normal,
                               BMHeader **out_buf, int out_cap);
 
+    /* Maps to BMesh's `edgeloop_fill` operator. Caps each closed loop in
+     * the supplied `edges` set with a single n-gon face — no triangulation,
+     * no new vertices, no new edges. The operator collects the loop's
+     * vertices, walks the cycle to order them, and creates one face per
+     * loop spanning exactly those vertices (skipping any loop whose face
+     * already exists). Multiple disjoint closed loops in one call each
+     * receive their own n-gon. Exposes both BMOP slots explicitly:
+     *
+     *   - `mat_nr`     — material index assigned to each created face.
+     *   - `use_smooth` — set the smooth-shading flag on each created face.
+     *
+     * The input is rejected (no face created) unless every input edge's two
+     * endpoints each carry exactly two input edges — i.e. the input is one
+     * or more simple closed loops with no branch, no dangling chain, and as
+     * many distinct vertices as edges.
+     *
+     * The operator's `faces.out` slot is not surfaced by this binding.
+     *
+     * Returns true on success, false if BMO_op_initf rejected the input. */
+    bool bms_edgeloop_fill(BMesh *bm,
+                           BMEdge **edges, int edges_len,
+                           int mat_nr,
+                           bool use_smooth);
+
+    /* Capturing variant of `bms_edgeloop_fill`.
+     *
+     * Runs the same `edgeloop_fill` BMOP but also copies the operator's
+     * `faces.out` slot — the n-gon face(s) the fill created — into the
+     * caller-supplied buffer `out_buf` of capacity `out_cap` face slots.
+     *
+     * Return value:
+     *   -1   on operator init failure (matches the `false` return of the
+     *        non-capturing variant).
+     *   >= 0 on success: the *total* number of faces the slot produced. Up
+     *        to `min(total, out_cap)` pointers are written to `out_buf` in
+     *        the slot's emit order; if the returned count exceeds `out_cap`,
+     *        the buffer was undersized.
+     *
+     * `out_buf` may be null only when `out_cap` is zero (size-probing mode). */
+    int bms_edgeloop_fill_out(BMesh *bm,
+                              BMEdge **edges, int edges_len,
+                              int mat_nr,
+                              bool use_smooth,
+                              BMFace **out_buf, int out_cap);
+
     /* Maps to BMesh's `reverse_uvs` operator. Reverses the active UV
      * layer's per-loop float2 values around each input face — a pure
      * loop-customdata permutation with no topology change.
