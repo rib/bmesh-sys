@@ -2791,6 +2791,17 @@ unsafe extern "C" {
     /// be null when `out_cap` is 0 to obtain just the count. `bm` must be a
     /// valid, non-null mesh pointer.
     pub fn bms_edges_read_hflag(bm: *mut BMesh, out: *mut c_int, out_cap: c_int) -> c_int;
+
+    /// Copies each face's header flags (`hflag`) into `out` as one `c_int`
+    /// per face, in the same face iteration order as [`bms_snapshot`]'s face
+    /// read-back, so the i-th written value corresponds to the i-th snapshot
+    /// face. The flags are a bitfield (`BM_ELEM_SELECT`, `BM_ELEM_SMOOTH`,
+    /// etc.). Up to `out_cap` values are written; the true face count is
+    /// always returned, so a return value greater than `out_cap` signals
+    /// truncation. `out` must be valid for `out_cap` `c_int`s, or may be null
+    /// when `out_cap` is 0 to obtain just the count. `bm` must be a valid,
+    /// non-null mesh pointer.
+    pub fn bms_faces_read_hflag(bm: *mut BMesh, out: *mut c_int, out_cap: c_int) -> c_int;
 }
 
 // ---- Customdata layer access ----

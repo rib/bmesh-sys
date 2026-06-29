@@ -901,6 +901,27 @@ extern "C"
         return ei;
     }
 
+    /* Copy each face's header flags (f->head.hflag) into out[], one int per
+     * face, in BM_FACES_OF_MESH iteration order (the same order bms_snapshot
+     * writes face data). The flags are a bitfield (BM_ELEM_SELECT,
+     * BM_ELEM_SMOOTH, etc.). Up to out_cap values are written; the true face
+     * count is always returned, so callers can detect truncation when the
+     * count exceeds out_cap. out may be null when out_cap is 0 to obtain just
+     * the count. */
+    int bms_faces_read_hflag(BMesh *bm, int *out, int out_cap)
+    {
+        BMFace *f;
+        BMIter iter;
+        int fi = 0;
+        BM_ITER_MESH(f, &iter, bm, BM_FACES_OF_MESH)
+        {
+            if (fi < out_cap)
+                out[fi] = f->head.hflag;
+            fi++;
+        }
+        return fi;
+    }
+
     /* ---- Customdata layer access ---- */
     /*
      * The bms_*_layer_add_* functions register a per-element CD layer on
