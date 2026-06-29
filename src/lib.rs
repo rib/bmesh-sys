@@ -1260,6 +1260,49 @@ unsafe extern "C" {
         out_cap: c_int,
     ) -> c_int;
 
+    /// Invoke BMesh's `holes_fill` BMOP on the supplied edge set. Detects
+    /// closed boundary loops spanned by `edges` and caps each with a single
+    /// n-gon face. Holes whose perimeter exceeds `sides` edges are skipped;
+    /// pass a large `sides` to fill every detected hole. Both BMOP slots are
+    /// forwarded explicitly:
+    ///
+    /// - `edges` — the candidate boundary edges to consider.
+    /// - `sides` — maximum hole perimeter (in edges) eligible for filling.
+    ///
+    /// `edges` points to an array of `edges_len` edge pointers belonging to
+    /// `bm`; the buffer is read, not modified. The operator's `faces.out`
+    /// slot is not surfaced by this binding. Returns false if the operator
+    /// rejected the input.
+    pub fn bms_holes_fill(
+        bm: *mut BMesh,
+        edges: *mut *mut BMEdge,
+        edges_len: c_int,
+        sides: c_int,
+    ) -> bool;
+
+    /// Capturing variant of [`bms_holes_fill`].
+    ///
+    /// Runs the same `holes_fill` BMOP and additionally copies the operator's
+    /// `faces.out` slot — the n-gon face(s) the fill created — into the
+    /// caller-supplied buffer `out_buf` of capacity `out_cap` slots.
+    ///
+    /// Return value:
+    /// - `-1` on operator init failure (mirrors the `false` return of the
+    ///   non-capturing variant).
+    /// - `>= 0` on success: the *total* number of created faces. Up to
+    ///   `min(total, out_cap)` pointers are written to `out_buf` in the
+    ///   slot's emit order; if `total > out_cap` the buffer was undersized.
+    ///
+    /// `out_buf` may be null only when `out_cap` is zero (size-probing mode).
+    pub fn bms_holes_fill_out(
+        bm: *mut BMesh,
+        edges: *mut *mut BMEdge,
+        edges_len: c_int,
+        sides: c_int,
+        out_buf: *mut *mut BMFace,
+        out_cap: c_int,
+    ) -> c_int;
+
     /// Maps to BMesh's `grid_fill` operator: fill the rectangular region
     /// delimited by two opposing open edge loops with a regular grid of quad
     /// faces.

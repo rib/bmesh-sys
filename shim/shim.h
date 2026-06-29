@@ -876,6 +876,42 @@ extern "C"
                               bool use_smooth,
                               BMFace **out_buf, int out_cap);
 
+    /* Maps to BMesh's `holes_fill` operator. Detects closed boundary loops
+     * spanned by the supplied `edges` set and caps each with a single n-gon
+     * face. Holes whose perimeter exceeds `sides` edges are skipped; pass a
+     * large `sides` to fill every detected hole regardless of size. Both
+     * BMOP slots are forwarded explicitly:
+     *
+     *   - `edges` — the candidate boundary edges to consider.
+     *   - `sides` — maximum hole perimeter (in edges) eligible for filling.
+     *
+     * The operator's `faces.out` slot is not surfaced by this binding.
+     *
+     * Returns true on success, false if BMO_op_initf rejected the input. */
+    bool bms_holes_fill(BMesh *bm,
+                        BMEdge **edges, int edges_len,
+                        int sides);
+
+    /* Capturing variant of `bms_holes_fill`.
+     *
+     * Runs the same `holes_fill` BMOP but also copies the operator's
+     * `faces.out` slot — the n-gon face(s) the fill created — into the
+     * caller-supplied buffer `out_buf` of capacity `out_cap` face slots.
+     *
+     * Return value:
+     *   -1   on operator init failure (matches the `false` return of the
+     *        non-capturing variant).
+     *   >= 0 on success: the *total* number of faces the slot produced. Up
+     *        to `min(total, out_cap)` pointers are written to `out_buf` in
+     *        the slot's emit order; if the returned count exceeds `out_cap`,
+     *        the buffer was undersized.
+     *
+     * `out_buf` may be null only when `out_cap` is zero (size-probing mode). */
+    int bms_holes_fill_out(BMesh *bm,
+                           BMEdge **edges, int edges_len,
+                           int sides,
+                           BMFace **out_buf, int out_cap);
+
     /* Maps to BMesh's `grid_fill` operator. Fills the rectangular region
      * delimited by two opposing open edge loops with a regular grid of
      * quad faces. The supplied `edges` set must resolve to exactly two
