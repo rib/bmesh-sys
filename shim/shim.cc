@@ -2799,6 +2799,73 @@ extern "C"
         return geom_count;
     }
 
+    bool bms_beautify_fill(BMesh *bm,
+                           BMFace **faces, int faces_len,
+                           BMEdge **edges, int edges_len,
+                           bool use_restrict_tag, int method)
+    {
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "beautify_fill faces=%eb edges=%eb "
+                          "use_restrict_tag=%b method=%i",
+                          reinterpret_cast<BMHeader **>(faces),
+                          faces_len,
+                          reinterpret_cast<BMHeader **>(edges),
+                          edges_len,
+                          use_restrict_tag,
+                          method))
+        {
+            return false;
+        }
+        BMO_op_exec(bm, &op);
+        BMO_op_finish(bm, &op);
+        return true;
+    }
+
+    int bms_beautify_fill_out(BMesh *bm,
+                              BMFace **faces, int faces_len,
+                              BMEdge **edges, int edges_len,
+                              bool use_restrict_tag, int method,
+                              BMHeader **out_buf, int out_cap)
+    {
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "beautify_fill faces=%eb edges=%eb "
+                          "use_restrict_tag=%b method=%i",
+                          reinterpret_cast<BMHeader **>(faces),
+                          faces_len,
+                          reinterpret_cast<BMHeader **>(edges),
+                          edges_len,
+                          use_restrict_tag,
+                          method))
+        {
+            return -1;
+        }
+        BMO_op_exec(bm, &op);
+
+        int geom_count = 0;
+        {
+            BMOIter oiter;
+            BMHeader *ele = static_cast<BMHeader *>(
+                BMO_iter_new(&oiter, op.slots_out, "geom.out", BM_ALL_NOLOOP));
+            for (; ele; ele = static_cast<BMHeader *>(BMO_iter_step(&oiter)))
+            {
+                if (geom_count < out_cap)
+                {
+                    out_buf[geom_count] = ele;
+                }
+                geom_count++;
+            }
+        }
+
+        BMO_op_finish(bm, &op);
+        return geom_count;
+    }
+
     bool bms_edgeloop_fill(BMesh *bm,
                            BMEdge **edges, int edges_len,
                            int mat_nr,

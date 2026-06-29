@@ -784,6 +784,53 @@ extern "C"
                               const float *normal,
                               BMHeader **out_buf, int out_cap);
 
+    /* Maps to BMesh's `beautify_fill` operator. Rotates the interior
+     * diagonals of an existing triangle patch toward a better-shaped
+     * triangulation under a beauty metric. Creates and deletes no
+     * geometry: it only changes which diagonal is present by flipping
+     * rotatable edges. Exposes the BMOP's input slots explicitly:
+     *
+     *   - `faces`            — the triangle patch to operate on.
+     *   - `edges`            — the set of interior edges eligible to rotate.
+     *   - `use_restrict_tag` — restrict edge rotation to edges spanning
+     *                          mixed (tagged/untagged) vertices.
+     *   - `method`           — the beauty metric: 0 = AREA (area/perimeter),
+     *                          1 = ANGLE (dihedral angle).
+     *
+     * `faces` points to an array of `faces_len` face pointers and `edges`
+     * to an array of `edges_len` edge pointers, all belonging to `bm`.
+     *
+     * Returns true on success, false if BMO_op_initf rejected the input. */
+    bool bms_beautify_fill(BMesh *bm,
+                           BMFace **faces, int faces_len,
+                           BMEdge **edges, int edges_len,
+                           bool use_restrict_tag, int method);
+
+    /* Capturing variant of `bms_beautify_fill`.
+     *
+     * Runs the same `beautify_fill` BMOP but also copies the operator's
+     * `geom.out` slot — the rotated edges and their flanking faces — into
+     * the caller-supplied buffer `out_buf` of capacity `out_cap` element
+     * slots. Each written pointer is a `BMHeader *`; the caller
+     * distinguishes edges from faces via the element's `htype`.
+     *
+     * Return value:
+     *   -1   on operator init failure (matches the `false` return of the
+     *        non-capturing variant).
+     *   >= 0 on success: the *total* number of elements the slot produced.
+     *        Up to `min(total, out_cap)` pointers are written to `out_buf`
+     *        (in the slot's emit order). If the returned count exceeds
+     *        `out_cap`, the buffer was undersized.
+     *
+     * `out_buf` may be null only when `out_cap` is zero; in that case the
+     * function still runs the operator and returns the element count for
+     * sizing purposes. */
+    int bms_beautify_fill_out(BMesh *bm,
+                              BMFace **faces, int faces_len,
+                              BMEdge **edges, int edges_len,
+                              bool use_restrict_tag, int method,
+                              BMHeader **out_buf, int out_cap);
+
     /* Maps to BMesh's `edgeloop_fill` operator. Caps each closed loop in
      * the supplied `edges` set with a single n-gon face — no triangulation,
      * no new vertices, no new edges. The operator collects the loop's

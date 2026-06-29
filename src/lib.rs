@@ -1154,6 +1154,61 @@ unsafe extern "C" {
         out_cap: c_int,
     ) -> c_int;
 
+    /// Invoke BMesh's `beautify_fill` BMOP on the supplied triangle patch.
+    /// Rotates the interior diagonals of the patch toward a better-shaped
+    /// triangulation under a beauty metric, creating and deleting no
+    /// geometry (only flipping which diagonal is present). The BMOP slots
+    /// are forwarded explicitly:
+    ///
+    /// - `faces` — the triangle patch to operate on.
+    /// - `edges` — the set of interior edges eligible to rotate.
+    /// - `use_restrict_tag` — restrict rotation to edges spanning mixed
+    ///   (tagged/untagged) vertices.
+    /// - `method` — the beauty metric: `0` = AREA (area/perimeter), `1` =
+    ///   ANGLE (dihedral angle).
+    ///
+    /// `faces` points to an array of `faces_len` face pointers and `edges`
+    /// to an array of `edges_len` edge pointers, all belonging to `bm`.
+    /// Returns false if the operator rejected the input.
+    pub fn bms_beautify_fill(
+        bm: *mut BMesh,
+        faces: *mut *mut BMFace,
+        faces_len: c_int,
+        edges: *mut *mut BMEdge,
+        edges_len: c_int,
+        use_restrict_tag: bool,
+        method: c_int,
+    ) -> bool;
+
+    /// Capturing variant of [`bms_beautify_fill`].
+    ///
+    /// Runs the same `beautify_fill` BMOP and additionally copies the
+    /// operator's `geom.out` slot — the rotated edges and their flanking
+    /// faces — into the caller-supplied buffer `out_buf` of capacity
+    /// `out_cap` slots. Each written pointer is a `*mut BMHeader`; inspect
+    /// the element's `htype` to distinguish edges from faces.
+    ///
+    /// Return value:
+    /// - `-1` on operator init failure (mirrors the `false` return of the
+    ///   non-capturing variant).
+    /// - `>= 0` on success: the *total* number of elements produced. Up to
+    ///   `min(total, out_cap)` pointers are written to `out_buf` in the
+    ///   slot's emit order; if `total > out_cap` the buffer was undersized.
+    ///
+    /// `out_buf` may be null only when `out_cap` is zero (size-probing
+    /// mode).
+    pub fn bms_beautify_fill_out(
+        bm: *mut BMesh,
+        faces: *mut *mut BMFace,
+        faces_len: c_int,
+        edges: *mut *mut BMEdge,
+        edges_len: c_int,
+        use_restrict_tag: bool,
+        method: c_int,
+        out_buf: *mut *mut BMHeader,
+        out_cap: c_int,
+    ) -> c_int;
+
     /// Invoke BMesh's `edgeloop_fill` BMOP on the supplied edge set. Caps
     /// each closed loop present in `edges` with a single n-gon face — no
     /// triangulation, no new vertices, no new edges. Both BMOP slots are
