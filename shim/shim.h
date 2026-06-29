@@ -829,6 +829,63 @@ extern "C"
                               bool use_smooth,
                               BMFace **out_buf, int out_cap);
 
+    /* Maps to BMesh's `grid_fill` operator. Fills the rectangular region
+     * delimited by two opposing open edge loops with a regular grid of
+     * quad faces. The supplied `edges` set must resolve to exactly two
+     * open (non-closed) edge loops — the two opposing sides of the grid.
+     * The operator discovers the two connecting "rail" sides automatically
+     * by walking wire-or-boundary edges between the loop endpoints, so those
+     * rails must already exist in the mesh. When the two opposing sides (or
+     * the two rails) differ in vertex count, the shorter side is temporarily
+     * subdivided so the grid is rectangular, and those splits are collapsed
+     * back out afterwards. Interior grid vertices are created by
+     * interpolating the four boundary sides; the perimeter vertices are
+     * reused. Exposes every BMOP slot explicitly:
+     *
+     *   - `mat_nr`            — material index assigned to each created quad.
+     *   - `use_smooth`        — set the smooth-shading flag on each quad.
+     *   - `use_interp_simple` — place interior verts by simple bilinear
+     *                           boundary weighting instead of the default
+     *                           transform-based interpolation.
+     *
+     * The input is rejected (no face created) when it does not resolve to
+     * exactly two open loops, when either resolved loop is closed, when no
+     * wire/boundary rail connects the loops, or when the discovered rails
+     * overlap.
+     *
+     * The operator's `faces.out` slot is not surfaced by this binding.
+     *
+     * Returns true on success, false if BMO_op_initf rejected the input or
+     * the operator cancelled (e.g. the input did not resolve to two open
+     * loops). */
+    bool bms_grid_fill(BMesh *bm,
+                       BMEdge **edges, int edges_len,
+                       int mat_nr,
+                       bool use_smooth,
+                       bool use_interp_simple);
+
+    /* Capturing variant of `bms_grid_fill`.
+     *
+     * Runs the same `grid_fill` BMOP but also copies the operator's
+     * `faces.out` slot — the grid of quad faces the fill created — into the
+     * caller-supplied buffer `out_buf` of capacity `out_cap` face slots.
+     *
+     * Return value:
+     *   -1   on operator init failure (matches the `false` return of the
+     *        non-capturing variant).
+     *   >= 0 on success: the *total* number of faces the slot produced. Up
+     *        to `min(total, out_cap)` pointers are written to `out_buf` in
+     *        the slot's emit order; if the returned count exceeds `out_cap`,
+     *        the buffer was undersized.
+     *
+     * `out_buf` may be null only when `out_cap` is zero (size-probing mode). */
+    int bms_grid_fill_out(BMesh *bm,
+                          BMEdge **edges, int edges_len,
+                          int mat_nr,
+                          bool use_smooth,
+                          bool use_interp_simple,
+                          BMFace **out_buf, int out_cap);
+
     /* Maps to BMesh's `reverse_uvs` operator. Reverses the active UV
      * layer's per-loop float2 values around each input face — a pure
      * loop-customdata permutation with no topology change.

@@ -1205,6 +1205,64 @@ unsafe extern "C" {
         out_cap: c_int,
     ) -> c_int;
 
+    /// Maps to BMesh's `grid_fill` operator: fill the rectangular region
+    /// delimited by two opposing open edge loops with a regular grid of quad
+    /// faces.
+    ///
+    /// The `edges` set must resolve to exactly two open (non-closed) edge
+    /// loops — the two opposing sides of the grid. The operator discovers the
+    /// two connecting "rail" sides automatically by walking wire-or-boundary
+    /// edges between the loop endpoints, so those rails must already exist in
+    /// the mesh. When opposing sides differ in vertex count, the shorter side
+    /// is temporarily subdivided so the grid is rectangular and those splits
+    /// are collapsed back out afterwards. Interior grid vertices are created by
+    /// interpolating the four boundary sides; the perimeter vertices are
+    /// reused. Every slot is forwarded explicitly:
+    ///
+    /// - `mat_nr` — material index assigned to each created quad.
+    /// - `use_smooth` — set the smooth-shading flag on each created quad.
+    /// - `use_interp_simple` — place interior verts by simple bilinear boundary
+    ///   weighting instead of the default transform-based interpolation.
+    ///
+    /// `edges` points to an array of `edges_len` edge pointers belonging to
+    /// `bm`; the buffer is read, not modified. The operator's `faces.out` slot
+    /// is not surfaced by this binding. Returns false if the operator rejected
+    /// the input (no two open loops, a closed loop, no connecting rail, or
+    /// overlapping rails).
+    pub fn bms_grid_fill(
+        bm: *mut BMesh,
+        edges: *mut *mut BMEdge,
+        edges_len: c_int,
+        mat_nr: c_int,
+        use_smooth: bool,
+        use_interp_simple: bool,
+    ) -> bool;
+
+    /// Capturing variant of [`bms_grid_fill`].
+    ///
+    /// Runs the same `grid_fill` BMOP and additionally copies the operator's
+    /// `faces.out` slot — the grid of quad faces the fill created — into the
+    /// caller-supplied buffer `out_buf` of capacity `out_cap` slots.
+    ///
+    /// Return value:
+    /// - `-1` on operator init failure (mirrors the `false` return of the
+    ///   non-capturing variant).
+    /// - `>= 0` on success: the *total* number of created faces. Up to
+    ///   `min(total, out_cap)` pointers are written to `out_buf` in the
+    ///   slot's emit order; if `total > out_cap` the buffer was undersized.
+    ///
+    /// `out_buf` may be null only when `out_cap` is zero (size-probing mode).
+    pub fn bms_grid_fill_out(
+        bm: *mut BMesh,
+        edges: *mut *mut BMEdge,
+        edges_len: c_int,
+        mat_nr: c_int,
+        use_smooth: bool,
+        use_interp_simple: bool,
+        out_buf: *mut *mut BMFace,
+        out_cap: c_int,
+    ) -> c_int;
+
     /// Maps to BMesh's `reverse_uvs` operator: reverses the active UV
     /// layer's per-loop values around each input face (a pure
     /// loop-customdata permutation, no topology change).
