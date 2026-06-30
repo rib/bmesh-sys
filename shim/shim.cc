@@ -3250,6 +3250,31 @@ extern "C"
         return n;
     }
 
+    void bms_create_uvsphere(BMesh *bm,
+                             int u_segments,
+                             int v_segments,
+                             float radius,
+                             const float matrix[16],
+                             bool calc_uvs)
+    {
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "create_uvsphere u_segments=%i v_segments=%i "
+                          "radius=%f matrix=%m4 calc_uvs=%b",
+                          u_segments,
+                          v_segments,
+                          radius,
+                          matrix,
+                          calc_uvs))
+        {
+            return;
+        }
+        BMO_op_exec(bm, &op);
+        BMO_op_finish(bm, &op);
+    }
+
     int bms_grid_fill_out(BMesh *bm,
                           BMEdge **edges, int edges_len,
                           int mat_nr,

@@ -1110,6 +1110,24 @@ extern "C"
                             bool calc_uvs,
                             BMVert **out_buf, int out_cap);
 
+    /* Maps to BMesh's `create_uvsphere` operator. Builds a
+     * longitude/latitude sphere of `u_segments` meridian columns and
+     * `v_segments` latitude bands at the given `radius`: a stack of
+     * constant-latitude rings joined by quad bands, closed off by a
+     * triangle fan at each pole. Both segment counts are clamped to a
+     * minimum of 1 (a count of 0 builds a degenerate shell, not nothing).
+     * Every generated vertex is transformed by `matrix` (a column-major
+     * 4x4 matrix given as 16 floats) and the geometry is appended to `bm`.
+     * When `calc_uvs` is set the new faces receive a default equirectangular
+     * UV unwrap on the active UV layer. The operator's `verts.out` slot is
+     * not surfaced by this binding. */
+    void bms_create_uvsphere(BMesh *bm,
+                             int u_segments,
+                             int v_segments,
+                             float radius,
+                             const float matrix[16],
+                             bool calc_uvs);
+
     /* Maps to BMesh's `reverse_uvs` operator. Reverses the active UV
      * layer's per-loop float2 values around each input face — a pure
      * loop-customdata permutation with no topology change.
