@@ -3275,6 +3275,29 @@ extern "C"
         BMO_op_finish(bm, &op);
     }
 
+    void bms_create_icosphere(BMesh *bm,
+                              int subdivisions,
+                              float radius,
+                              const float matrix[16],
+                              bool calc_uvs)
+    {
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "create_icosphere subdivisions=%i radius=%f "
+                          "matrix=%m4 calc_uvs=%b",
+                          subdivisions,
+                          radius,
+                          matrix,
+                          calc_uvs))
+        {
+            return;
+        }
+        BMO_op_exec(bm, &op);
+        BMO_op_finish(bm, &op);
+    }
+
     int bms_grid_fill_out(BMesh *bm,
                           BMEdge **edges, int edges_len,
                           int mat_nr,

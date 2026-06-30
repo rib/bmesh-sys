@@ -1128,6 +1128,24 @@ extern "C"
                              const float matrix[16],
                              bool calc_uvs);
 
+    /* Maps to BMesh's `create_icosphere` operator. Builds a geodesic
+     * sphere by recursively subdividing a regular icosahedron. The base
+     * icosahedron (12 vertices, 20 triangular faces) is laid down first,
+     * then for `subdivisions` greater than 1 every edge is split into
+     * 2^(subdivisions-1) segments with spherical projection, so each base
+     * triangle becomes a fan of 4^(subdivisions-1) triangles whose new
+     * vertices land on the sphere of the given `radius`. A `subdivisions`
+     * of 1 (or less) leaves the bare icosahedron. Every generated vertex
+     * is transformed by `matrix` (a column-major 4x4 matrix given as 16
+     * floats) and the geometry is appended to `bm`. When `calc_uvs` is set
+     * the new faces receive a default UV layout on the active UV layer.
+     * The operator's `verts.out` slot is not surfaced by this binding. */
+    void bms_create_icosphere(BMesh *bm,
+                              int subdivisions,
+                              float radius,
+                              const float matrix[16],
+                              bool calc_uvs);
+
     /* Maps to BMesh's `reverse_uvs` operator. Reverses the active UV
      * layer's per-loop float2 values around each input face — a pure
      * loop-customdata permutation with no topology change.
