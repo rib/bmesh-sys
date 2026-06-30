@@ -1468,6 +1468,35 @@ unsafe extern "C" {
         calc_uvs: bool,
     );
 
+    /// Capturing variant of [`bms_create_circle`].
+    ///
+    /// Runs the same `create_circle` BMOP and additionally copies the
+    /// operator's `verts.out` slot — the vertices the operator created, in
+    /// slot (operator output) order — into the caller-supplied buffer
+    /// `out_buf` of capacity `out_cap` slots.
+    ///
+    /// Return value:
+    /// - `-1` on operator init failure (mirrors the silent return of the
+    ///   non-capturing variant).
+    /// - `>= 0` on success: the *total* number of created vertices. Up to
+    ///   `min(total, out_cap)` pointers are written to `out_buf` in slot order;
+    ///   if `total > out_cap` the buffer was undersized.
+    ///
+    /// `matrix` must point to 16 `f32`s forming a column-major 4x4 transform.
+    /// `out_buf` may be null only when `out_cap` is zero (size-probing mode).
+    /// Read each returned vertex's position with [`bms_vert_co`].
+    pub fn bms_create_circle_out(
+        bm: *mut BMesh,
+        cap_ends: bool,
+        cap_tris: bool,
+        segments: c_int,
+        radius: f32,
+        matrix: *const f32,
+        calc_uvs: bool,
+        out_buf: *mut *mut BMVert,
+        out_cap: c_int,
+    ) -> c_int;
+
     /// Maps to BMesh's `reverse_uvs` operator: reverses the active UV
     /// layer's per-loop values around each input face (a pure
     /// loop-customdata permutation, no topology change).

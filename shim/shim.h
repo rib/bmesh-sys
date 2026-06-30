@@ -1046,6 +1046,26 @@ extern "C"
                            const float matrix[16],
                            bool calc_uvs);
 
+    /* Capturing variant of `bms_create_circle`. Runs the same `create_circle`
+     * operator and additionally surfaces its `verts.out` element-buffer slot —
+     * the vertices the operator created, in slot (operator output) order.
+     *
+     * Up to `min(total, out_cap)` `BMVert*` handles are written to `out_buf`
+     * in slot order; the return value is the *total* created-vertex count.
+     * If the returned count exceeds `out_cap`, the buffer was undersized and
+     * only the first `out_cap` handles were written. Returns -1 if BMO_op_initf
+     * rejected the input. `out_buf` may be null only when `out_cap` is zero
+     * (size-probing mode). Vertex positions are read per handle via
+     * `bms_vert_co`. */
+    int bms_create_circle_out(BMesh *bm,
+                              bool cap_ends,
+                              bool cap_tris,
+                              int segments,
+                              float radius,
+                              const float matrix[16],
+                              bool calc_uvs,
+                              BMVert **out_buf, int out_cap);
+
     /* Maps to BMesh's `reverse_uvs` operator. Reverses the active UV
      * layer's per-loop float2 values around each input face — a pure
      * loop-customdata permutation with no topology change.
