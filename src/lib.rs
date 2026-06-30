@@ -1361,6 +1361,24 @@ unsafe extern "C" {
         out_cap: c_int,
     ) -> c_int;
 
+    /// Maps to BMesh's `create_grid` operator: builds a planar
+    /// (`x_segments` × `y_segments`) grid of quad faces in the local z=0
+    /// plane, scaled by `size` and transformed by `matrix`, appending the
+    /// new geometry to `bm`.
+    ///
+    /// `matrix` must point to 16 `f32`s forming a column-major 4x4
+    /// transform; the buffer is read, not modified. When `calc_uvs` is true
+    /// the new faces receive default unit-square UVs on the active UV layer.
+    /// The operator's `verts.out` slot is not surfaced by this binding.
+    pub fn bms_create_grid(
+        bm: *mut BMesh,
+        x_segments: c_int,
+        y_segments: c_int,
+        size: f32,
+        matrix: *const f32,
+        calc_uvs: bool,
+    );
+
     /// Maps to BMesh's `reverse_uvs` operator: reverses the active UV
     /// layer's per-loop values around each input face (a pure
     /// loop-customdata permutation, no topology change).

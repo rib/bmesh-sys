@@ -2996,6 +2996,31 @@ extern "C"
         return true;
     }
 
+    void bms_create_grid(BMesh *bm,
+                         int x_segments,
+                         int y_segments,
+                         float size,
+                         const float matrix[16],
+                         bool calc_uvs)
+    {
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "create_grid x_segments=%i y_segments=%i size=%f "
+                          "matrix=%m4 calc_uvs=%b",
+                          x_segments,
+                          y_segments,
+                          size,
+                          matrix,
+                          calc_uvs))
+        {
+            return;
+        }
+        BMO_op_exec(bm, &op);
+        BMO_op_finish(bm, &op);
+    }
+
     int bms_grid_fill_out(BMesh *bm,
                           BMEdge **edges, int edges_len,
                           int mat_nr,

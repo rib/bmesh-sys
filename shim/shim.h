@@ -969,6 +969,20 @@ extern "C"
                           bool use_interp_simple,
                           BMFace **out_buf, int out_cap);
 
+    /* Maps to BMesh's `create_grid` operator. Builds a planar
+     * (`x_segments` × `y_segments`) grid of quad faces in the local z=0
+     * plane, scaled by `size` and transformed by `matrix` (a column-major
+     * 4x4 matrix given as 16 floats), then appends the new geometry to
+     * `bm`. When `calc_uvs` is set, the faces receive default unit-square
+     * UVs on the active UV layer. The operator's `verts.out` slot is not
+     * surfaced by this binding. */
+    void bms_create_grid(BMesh *bm,
+                         int x_segments,
+                         int y_segments,
+                         float size,
+                         const float matrix[16],
+                         bool calc_uvs);
+
     /* Maps to BMesh's `reverse_uvs` operator. Reverses the active UV
      * layer's per-loop float2 values around each input face — a pure
      * loop-customdata permutation with no topology change.
