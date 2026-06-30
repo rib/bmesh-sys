@@ -4676,6 +4676,106 @@ extern "C"
         return geom_count;
     }
 
+    /*
+     * Maps to BMesh's `split` BMOP, setting its `dest` pointer slot to
+     * `bm_dst` via `dest=%p`. This drives the operator's declared slot form,
+     * but the slot is inert: the operator's exec never reads `dest`,
+     * forwarding only the `geom` buffer to its internal duplicate sub-op. The
+     * split-off copy is therefore always created in the source mesh `bm`, and
+     * `bm_dst` is left untouched even though it is wired in. Equivalent in
+     * observable effect to `bms_split`.
+     *
+     * The operator builds its `geom.out` buffer by scanning the source mesh,
+     * where the clone lives, so `geom.out` returns the full same-mesh clone
+     * (not an empty buffer). We forward whatever the BMOP returns.
+     *
+     * Returns the `geom.out` count (which may exceed `out_geom_cap`), or -1
+     * if BMO_op_initf rejected the input.
+     */
+    int bms_split_into_dest(BMesh *bm,
+                            BMHeader **geom, int geom_len,
+                            bool use_only_faces,
+                            BMesh *bm_dst,
+                            BMHeader **out_geom, int out_geom_cap,
+                            BMEdge **out_boundary_map, int out_boundary_cap,
+                            int *out_boundary_count,
+                            BMVert **out_isovert_map, int out_isovert_cap,
+                            int *out_isovert_count)
+    {
+        using namespace blender;
+
+        /* Ensure `bm_dst`'s operator-flag pools exist before exec, so the
+         * mesh is in a valid state to be wired into the `dest` slot. (The
+         * operator ignores the slot, so `bm_dst` ends up unmodified, but we
+         * keep this so passing a fresh mesh is always well-formed.) */
+        BM_mesh_elem_toolflags_ensure(bm_dst);
+
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "split geom=%eb use_only_faces=%b dest=%p",
+                          geom,
+                          geom_len,
+                          use_only_faces,
+                          bm_dst))
+        {
+            return -1;
+        }
+
+        BMO_op_exec(bm, &op);
+
+        /* Walk the `geom.out` element buffer. The clone is born in the source
+         * mesh `bm`, which the operator scans, so this yields the full
+         * same-mesh clone. */
+        int geom_count = 0;
+        {
+            BMOIter oiter;
+            BMHeader *ele = static_cast<BMHeader *>(
+                BMO_iter_new(&oiter, op.slots_out, "geom.out", BM_ALL_NOLOOP));
+            for (; ele; ele = static_cast<BMHeader *>(BMO_iter_step(&oiter)))
+            {
+                if (geom_count < out_geom_cap)
+                {
+                    out_geom[geom_count] = ele;
+                }
+                geom_count++;
+            }
+        }
+
+        /* Read a MAP_ELEM slot as flat (key, value) couples. */
+        auto read_map = [&](const char *slot_name, int restrict_flag,
+                            void **out_buf, int cap, int *out_count) {
+            int count = 0;
+            BMOIter oiter;
+            void *key = BMO_iter_new(&oiter, op.slots_out, slot_name, restrict_flag);
+            for (; key; key = BMO_iter_step(&oiter))
+            {
+                void *val = BMO_iter_map_value_ptr(&oiter);
+                if (count < cap && out_buf)
+                {
+                    out_buf[2 * count] = key;
+                    out_buf[2 * count + 1] = val;
+                }
+                count++;
+            }
+            if (out_count)
+            {
+                *out_count = count;
+            }
+        };
+
+        read_map("boundary_map.out", BM_EDGE,
+                 reinterpret_cast<void **>(out_boundary_map),
+                 out_boundary_cap, out_boundary_count);
+        read_map("isovert_map.out", BM_VERT,
+                 reinterpret_cast<void **>(out_isovert_map),
+                 out_isovert_cap, out_isovert_count);
+
+        BMO_op_finish(bm, &op);
+        return geom_count;
+    }
+
     /* Invoke BMesh's `mirror` operator: duplicate `geom`, reflect the copy
      * across the `axis` plane in `matrix` space, flip the reflected
      * winding, and weld reflected verts onto their originals within

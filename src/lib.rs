@@ -2493,6 +2493,58 @@ unsafe extern "C" {
         out_isovert_count: *mut c_int,
     ) -> c_int;
 
+    /// Maps to BMesh's `split` BMOP, setting its `dest` pointer slot to
+    /// `bm_dst` via the operator format string. This faithfully drives the
+    /// operator's *declared* slot form, but note the slot is **inert**: the
+    /// operator's exec never reads `dest`, forwarding only the `geom` buffer
+    /// to its internal duplicate sub-op. As a result the split-off copy is
+    /// **always created in the source mesh `bm`**, and `bm_dst` is left
+    /// **unmodified** even though it is wired in. Use [`bms_split`] when no
+    /// destination slot is needed; the observable behaviour is the same.
+    ///
+    /// `geom` is a mixed array of `*mut BMHeader` (verts/edges/faces) of
+    /// length `geom_len` from the source mesh; it may be null only when
+    /// `geom_len` is zero. `use_only_faces` suppresses duplication of loose
+    /// verts/edges. Element pointers must remain valid for the duration of
+    /// the call.
+    ///
+    /// Outputs mirror [`bms_split`]: `out_geom` receives the `geom.out`
+    /// buffer, and the two `*_map` buffers receive their slots as flat
+    /// `(src, dst)` couples (`buf[2*i]` key, `buf[2*i+1]` value), each
+    /// holding at least `2 * cap` pointers. Because the clone is born in
+    /// `bm`, both the map keys and the mapped values point into `bm`.
+    /// Per-slot couple counts are written through the `out_*_count`
+    /// out-params (each may be null to ignore). Any buffer may be null with
+    /// its cap `0` to skip that slot.
+    ///
+    /// After the call the split-off copy consists of ordinary elements of the
+    /// source mesh `bm` and can be walked with the whole-mesh iteration entry
+    /// points; `bm_dst` holds whatever it held on entry.
+    ///
+    /// Returns the `geom.out` count. The operator builds `geom.out` by
+    /// scanning the source mesh, where the clone lives, so it returns the
+    /// full same-mesh clone (not an empty buffer). Returns -1 if the operator
+    /// rejected the input (no out-params written).
+    ///
+    /// A genuine cross-mesh tear must therefore be composed from other
+    /// operators (a cross-mesh duplicate followed by a source-side delete)
+    /// rather than relying on this slot.
+    pub fn bms_split_into_dest(
+        bm: *mut BMesh,
+        geom: *mut *mut BMHeader,
+        geom_len: c_int,
+        use_only_faces: bool,
+        bm_dst: *mut BMesh,
+        out_geom: *mut *mut BMHeader,
+        out_geom_cap: c_int,
+        out_boundary_map: *mut *mut BMEdge,
+        out_boundary_cap: c_int,
+        out_boundary_count: *mut c_int,
+        out_isovert_map: *mut *mut BMVert,
+        out_isovert_cap: c_int,
+        out_isovert_count: *mut c_int,
+    ) -> c_int;
+
     /// Invoke BMesh's `mirror` operator on the `geom` set: duplicate it,
     /// reflect the duplicate across the `axis` plane in `matrix` space,
     /// flip the reflected faces' winding, and weld each reflected vert

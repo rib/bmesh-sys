@@ -1403,6 +1403,51 @@ extern "C"
                   BMVert **out_isovert_map, int out_isovert_cap,
                   int *out_isovert_count);
 
+    /* Maps to BMesh's `split` BMOP, setting its `dest` pointer slot to
+     * `bm_dst` through the operator format string. This drives the operator's
+     * *declared* slot form, but the slot is inert: the operator's exec never
+     * reads `dest`, forwarding only the `geom` buffer to its internal
+     * duplicate sub-op. The split-off copy is therefore always created in the
+     * source mesh `bm`, and `bm_dst` is left untouched even though it is
+     * wired in. Behaves identically to `bms_split`.
+     *
+     * Inputs:
+     *   - `geom` / `geom_len`  — mixed vert / edge / face selection from the
+     *                            source mesh, forwarded via `%eb`
+     *                            (BM_VERT | BM_EDGE | BM_FACE). May be null
+     *                            with `geom_len == 0`.
+     *   - `use_only_faces`     — when true, suppresses duplication of loose
+     *                            verts/edges.
+     *   - `bm_dst`             — passed into the operator's `dest` slot. The
+     *                            operator ignores it, so it is not modified by
+     *                            this call.
+     *
+     * Outputs mirror `bms_split`: `out_geom` receives the `geom.out` element
+     * buffer, and the `boundary_map.out` (edge->edge) and `isovert_map.out`
+     * (vert->vert) MAP_ELEM slots are emitted as flat (src, dst) couples
+     * (`buf[2*i]` key, `buf[2*i+1]` value) up to each `_cap`, with the full
+     * couple count reported through the matching `_count` out-param. Each map
+     * buffer needs `2 * cap` writable slots. Any buffer may be null with its
+     * cap `0` to skip that slot. The clone is born in `bm`, so every key and
+     * value points into `bm`.
+     *
+     * The operator builds `geom.out` by scanning the source mesh, where the
+     * clone lives, so it returns the full same-mesh clone (not an empty
+     * buffer). A genuine cross-mesh tear must instead be composed from a
+     * cross-mesh duplicate plus a source-side delete. Element pointers in
+     * `geom` must remain valid for the duration of the call. Returns the
+     * `geom.out` count (which may exceed `out_geom_cap`), or -1 if
+     * BMO_op_initf rejected the input (no out-params written). */
+    int bms_split_into_dest(BMesh *bm,
+                            BMHeader **geom, int geom_len,
+                            bool use_only_faces,
+                            BMesh *bm_dst,
+                            BMHeader **out_geom, int out_geom_cap,
+                            BMEdge **out_boundary_map, int out_boundary_cap,
+                            int *out_boundary_count,
+                            BMVert **out_isovert_map, int out_isovert_cap,
+                            int *out_isovert_count);
+
     /* Invoke BMesh's `mirror` operator, which duplicates the supplied
      * geometry, reflects the duplicate by negating the chosen axis in the
      * `matrix` space, flips the reflected faces' winding, and welds each
