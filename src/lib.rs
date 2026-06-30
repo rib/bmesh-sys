@@ -1394,6 +1394,26 @@ unsafe extern "C" {
         calc_uvs: bool,
     );
 
+    /// Maps to BMesh's `create_circle` operator: builds a circle of
+    /// `segments` vertices of the given `radius` in the local z=0 plane,
+    /// transformed by `matrix`, appending the new geometry to `bm`.
+    ///
+    /// When `cap_ends` is true the circle is filled with a face; `cap_tris`
+    /// then selects a triangle fan over a single n-gon. `matrix` must point
+    /// to 16 `f32`s forming a column-major 4x4 transform; the buffer is
+    /// read, not modified. When `calc_uvs` is true the new faces receive
+    /// default UVs on the active UV layer. The operator's `verts.out` slot
+    /// is not surfaced by this binding.
+    pub fn bms_create_circle(
+        bm: *mut BMesh,
+        cap_ends: bool,
+        cap_tris: bool,
+        segments: c_int,
+        radius: f32,
+        matrix: *const f32,
+        calc_uvs: bool,
+    );
+
     /// Maps to BMesh's `reverse_uvs` operator: reverses the active UV
     /// layer's per-loop values around each input face (a pure
     /// loop-customdata permutation, no topology change).

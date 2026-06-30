@@ -994,6 +994,22 @@ extern "C"
                          const float matrix[16],
                          bool calc_uvs);
 
+    /* Maps to BMesh's `create_circle` operator. Builds a circle of
+     * `segments` vertices of the given `radius` in the local z=0 plane,
+     * transformed by `matrix` (a column-major 4x4 matrix given as 16
+     * floats), then appends the new geometry to `bm`. When `cap_ends` is
+     * set the circle is filled with a face; `cap_tris` then chooses a
+     * triangle fan over a single n-gon. When `calc_uvs` is set, the faces
+     * receive default UVs on the active UV layer. The operator's
+     * `verts.out` slot is not surfaced by this binding. */
+    void bms_create_circle(BMesh *bm,
+                           bool cap_ends,
+                           bool cap_tris,
+                           int segments,
+                           float radius,
+                           const float matrix[16],
+                           bool calc_uvs);
+
     /* Maps to BMesh's `reverse_uvs` operator. Reverses the active UV
      * layer's per-loop float2 values around each input face — a pure
      * loop-customdata permutation with no topology change.
