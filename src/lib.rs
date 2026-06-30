@@ -1497,6 +1497,62 @@ unsafe extern "C" {
         out_cap: c_int,
     ) -> c_int;
 
+    /// Maps to BMesh's `create_cone` operator: builds a cone, cylinder, or
+    /// truncated cone of `segments` vertices per ring — a bottom ring of
+    /// radius `radius1` at local `z = -depth/2` and a top ring of radius
+    /// `radius2` at local `z = +depth/2`, joined by a wall of side faces,
+    /// transformed by `matrix`, appending the new geometry to `bm`.
+    ///
+    /// When `cap_ends` is true each open ring is filled with a cap; `cap_tris`
+    /// then selects triangle fans over single n-gon caps. A ring whose radius
+    /// is `0` collapses to a single apex vertex (a true cone), with the side
+    /// faces becoming triangles. `matrix` must point to 16 `f32`s forming a
+    /// column-major 4x4 transform; the buffer is read, not modified. When
+    /// `calc_uvs` is true the new faces receive default UVs on the active UV
+    /// layer. The operator's `verts.out` slot is not surfaced by this binding.
+    pub fn bms_create_cone(
+        bm: *mut BMesh,
+        cap_ends: bool,
+        cap_tris: bool,
+        segments: c_int,
+        radius1: f32,
+        radius2: f32,
+        depth: f32,
+        matrix: *const f32,
+        calc_uvs: bool,
+    );
+
+    /// Capturing variant of [`bms_create_cone`].
+    ///
+    /// Runs the same `create_cone` BMOP and additionally copies the
+    /// operator's `verts.out` slot — the vertices the operator created, in
+    /// slot (operator output) order — into the caller-supplied buffer
+    /// `out_buf` of capacity `out_cap` slots.
+    ///
+    /// Return value:
+    /// - `-1` on operator init failure (mirrors the silent return of the
+    ///   non-capturing variant).
+    /// - `>= 0` on success: the *total* number of created vertices. Up to
+    ///   `min(total, out_cap)` pointers are written to `out_buf` in slot order;
+    ///   if `total > out_cap` the buffer was undersized.
+    ///
+    /// `matrix` must point to 16 `f32`s forming a column-major 4x4 transform.
+    /// `out_buf` may be null only when `out_cap` is zero (size-probing mode).
+    /// Read each returned vertex's position with [`bms_vert_co`].
+    pub fn bms_create_cone_out(
+        bm: *mut BMesh,
+        cap_ends: bool,
+        cap_tris: bool,
+        segments: c_int,
+        radius1: f32,
+        radius2: f32,
+        depth: f32,
+        matrix: *const f32,
+        calc_uvs: bool,
+        out_buf: *mut *mut BMVert,
+        out_cap: c_int,
+    ) -> c_int;
+
     /// Maps to BMesh's `reverse_uvs` operator: reverses the active UV
     /// layer's per-loop values around each input face (a pure
     /// loop-customdata permutation, no topology change).

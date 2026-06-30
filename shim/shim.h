@@ -1066,6 +1066,50 @@ extern "C"
                               bool calc_uvs,
                               BMVert **out_buf, int out_cap);
 
+    /* Maps to BMesh's `create_cone` operator. Builds a cone, cylinder, or
+     * truncated cone of `segments` vertices per ring: a bottom ring of
+     * radius `radius1` at local z = -depth/2 and a top ring of radius
+     * `radius2` at local z = +depth/2, joined by a wall of side faces, all
+     * transformed by `matrix` (a column-major 4x4 matrix given as 16
+     * floats), then appended to `bm`. When `cap_ends` is set each open ring
+     * is filled with a cap; `cap_tris` then chooses triangle fans over
+     * single n-gon caps. A ring whose radius is 0 collapses to a single
+     * apex vertex (a true cone), with the side faces becoming triangles.
+     * When `calc_uvs` is set the new faces receive default UVs on the
+     * active UV layer. The operator's `verts.out` slot is not surfaced by
+     * this binding. */
+    void bms_create_cone(BMesh *bm,
+                         bool cap_ends,
+                         bool cap_tris,
+                         int segments,
+                         float radius1,
+                         float radius2,
+                         float depth,
+                         const float matrix[16],
+                         bool calc_uvs);
+
+    /* Capturing variant of `bms_create_cone`. Runs the same `create_cone`
+     * operator and additionally surfaces its `verts.out` element-buffer slot —
+     * the vertices the operator created, in slot (operator output) order.
+     *
+     * Up to `min(total, out_cap)` `BMVert*` handles are written to `out_buf`
+     * in slot order; the return value is the *total* created-vertex count.
+     * If the returned count exceeds `out_cap`, the buffer was undersized and
+     * only the first `out_cap` handles were written. Returns -1 if BMO_op_initf
+     * rejected the input. `out_buf` may be null only when `out_cap` is zero
+     * (size-probing mode). Vertex positions are read per handle via
+     * `bms_vert_co`. */
+    int bms_create_cone_out(BMesh *bm,
+                            bool cap_ends,
+                            bool cap_tris,
+                            int segments,
+                            float radius1,
+                            float radius2,
+                            float depth,
+                            const float matrix[16],
+                            bool calc_uvs,
+                            BMVert **out_buf, int out_cap);
+
     /* Maps to BMesh's `reverse_uvs` operator. Reverses the active UV
      * layer's per-loop float2 values around each input face — a pure
      * loop-customdata permutation with no topology change.
