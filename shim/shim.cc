@@ -3473,6 +3473,22 @@ extern "C"
         return true;
     }
 
+    void bms_flip_quad_tessellation(BMesh *bm, BMFace **faces, int faces_len)
+    {
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "flip_quad_tessellation faces=%eb",
+                          reinterpret_cast<BMHeader **>(faces),
+                          faces_len))
+        {
+            return;
+        }
+        BMO_op_exec(bm, &op);
+        BMO_op_finish(bm, &op);
+    }
+
     bool bms_rotate_uvs(BMesh *bm, BMFace **faces, int faces_len, bool use_ccw)
     {
         BMOperator op;

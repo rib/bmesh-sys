@@ -1749,6 +1749,19 @@ unsafe extern "C" {
         color_index: c_int,
     ) -> bool;
 
+    /// Maps to BMesh's `flip_quad_tessellation` operator: for each input
+    /// quad it advances the face's first loop by one corner around the loop
+    /// cycle, flipping which diagonal a triangulator would pick. Non-quad
+    /// faces are left untouched and the loop index table is marked dirty.
+    ///
+    /// `faces` points to an array of `faces_len` face pointers belonging to
+    /// `bm`. The mesh behind `bm` is mutated in place.
+    pub fn bms_flip_quad_tessellation(
+        bm: *mut BMesh,
+        faces: *mut *mut BMFace,
+        faces_len: c_int,
+    );
+
     /// Invoke BMesh's `recalc_face_normals` BMOP ("Recalculate Outside") on
     /// the supplied face set. Recomputes each face's cached normal from its
     /// corner positions and rewinds each manifold-connected component so it

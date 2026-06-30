@@ -1247,6 +1247,12 @@ extern "C"
      * Returns true on success, false if BMO_op_initf rejected the input. */
     bool bms_rotate_colors(BMesh *bm, BMFace **faces, int faces_len, bool use_ccw, int color_index);
 
+    /* Maps to BMesh's `flip_quad_tessellation` operator. For each input quad
+     * it advances the face's first loop by one corner around the loop cycle,
+     * flipping which diagonal a triangulator would pick; non-quad faces are
+     * left untouched. The loop index table is marked dirty. */
+    void bms_flip_quad_tessellation(BMesh *bm, BMFace **faces, int faces_len);
+
     /* Invoke BMesh's `recalc_face_normals` operator on the supplied face set
      * (a.k.a. "Recalculate Outside"). For each face it recomputes the cached
      * normal from the corner positions, then propagates a consistent winding
