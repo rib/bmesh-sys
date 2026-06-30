@@ -1013,6 +1013,23 @@ extern "C"
                          const float matrix[16],
                          bool calc_uvs);
 
+    /* Capturing variant of `bms_create_cube`. Runs the same `create_cube`
+     * operator and additionally surfaces its `verts.out` element-buffer slot —
+     * the vertices the operator created, in slot (operator output) order.
+     *
+     * Up to `min(total, out_cap)` `BMVert*` handles are written to `out_buf`
+     * in slot order; the return value is the *total* created-vertex count.
+     * If the returned count exceeds `out_cap`, the buffer was undersized and
+     * only the first `out_cap` handles were written. Returns -1 if BMO_op_initf
+     * rejected the input. `out_buf` may be null only when `out_cap` is zero
+     * (size-probing mode). Vertex positions are read per handle via
+     * `bms_vert_co`. */
+    int bms_create_cube_out(BMesh *bm,
+                            float size,
+                            const float matrix[16],
+                            bool calc_uvs,
+                            BMVert **out_buf, int out_cap);
+
     /* Maps to BMesh's `create_circle` operator. Builds a circle of
      * `segments` vertices of the given `radius` in the local z=0 plane,
      * transformed by `matrix` (a column-major 4x4 matrix given as 16

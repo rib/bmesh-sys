@@ -3078,6 +3078,38 @@ extern "C"
         BMO_op_finish(bm, &op);
     }
 
+    int bms_create_cube_out(BMesh *bm,
+                            float size,
+                            const float matrix[16],
+                            bool calc_uvs,
+                            BMVert **out_buf, int out_cap)
+    {
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "create_cube size=%f matrix=%m4 calc_uvs=%b",
+                          size,
+                          matrix,
+                          calc_uvs))
+        {
+            return -1;
+        }
+        BMO_op_exec(bm, &op);
+
+        BMOpSlot *slot = BMO_slot_get(op.slots_out, "verts.out");
+        const int n = slot->len;
+        const int n_copy = (n < out_cap) ? n : out_cap;
+        BMVert **slot_items = reinterpret_cast<BMVert **>(slot->data.buf);
+        for (int i = 0; i < n_copy; ++i)
+        {
+            out_buf[i] = slot_items[i];
+        }
+
+        BMO_op_finish(bm, &op);
+        return n;
+    }
+
     void bms_create_circle(BMesh *bm,
                            bool cap_ends,
                            bool cap_tris,
