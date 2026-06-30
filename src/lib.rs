@@ -1303,6 +1303,53 @@ unsafe extern "C" {
         out_cap: c_int,
     ) -> c_int;
 
+    /// Invoke BMesh's `edgenet_fill` BMOP on the supplied edge set. Treats
+    /// `edges` as an edge-net and fills the closed regions it bounds with new
+    /// faces. All four BMOP slots are forwarded explicitly:
+    ///
+    /// - `edges` — the edge-net to fill.
+    /// - `mat_nr` — material index assigned to created faces.
+    /// - `use_smooth` — smooth flag assigned to created faces.
+    /// - `sides` — maximum number of sides for created faces.
+    ///
+    /// `edges` points to an array of `edges_len` edge pointers belonging to
+    /// `bm`; the buffer is read, not modified. The operator's `faces.out`
+    /// slot is not surfaced by this binding. Returns false if the operator
+    /// rejected the input.
+    pub fn bms_edgenet_fill(
+        bm: *mut BMesh,
+        edges: *mut *mut BMEdge,
+        edges_len: c_int,
+        mat_nr: c_int,
+        use_smooth: bool,
+        sides: c_int,
+    ) -> bool;
+
+    /// Capturing variant of [`bms_edgenet_fill`].
+    ///
+    /// Runs the same `edgenet_fill` BMOP and additionally copies the
+    /// operator's `faces.out` slot — the face(s) the fill created — into the
+    /// caller-supplied buffer `out_buf` of capacity `out_cap` slots.
+    ///
+    /// Return value:
+    /// - `-1` on operator init failure (mirrors the `false` return of the
+    ///   non-capturing variant).
+    /// - `>= 0` on success: the *total* number of created faces. Up to
+    ///   `min(total, out_cap)` pointers are written to `out_buf` in the
+    ///   slot's emit order; if `total > out_cap` the buffer was undersized.
+    ///
+    /// `out_buf` may be null only when `out_cap` is zero (size-probing mode).
+    pub fn bms_edgenet_fill_out(
+        bm: *mut BMesh,
+        edges: *mut *mut BMEdge,
+        edges_len: c_int,
+        mat_nr: c_int,
+        use_smooth: bool,
+        sides: c_int,
+        out_buf: *mut *mut BMFace,
+        out_cap: c_int,
+    ) -> c_int;
+
     /// Invoke BMesh's `face_attribute_fill` BMOP on the supplied face set.
     /// The `faces` are destination faces that inherit their attributes (and,
     /// optionally, winding) from their adjacent *unselected* faces. The fill
