@@ -1762,6 +1762,43 @@ extern "C"
                          float clip_dist,
                          bool use_axis_x, bool use_axis_y, bool use_axis_z);
 
+    /* Invoke BMesh's `smooth_laplacian_vert` operator: relax each input vertex
+     * by assembling and solving one cotangent-weighted Laplacian system (a
+     * single implicit/backward-Euler smoothing step). Interior verts use the
+     * area-normalised cotangent weights at strength `lambda_factor`; rim verts
+     * (on a topological boundary or adjacent to a face outside the region) use
+     * a uniform edge-length weighting at strength `lambda_border`.
+     *
+     * The operator's smoothing region is carried by the face SELECT flags, not
+     * a slot: this shim selects exactly the faces in `region_faces` (and clears
+     * SELECT on every other face and on all edges) before running, so the named
+     * faces' corner triangles supply the cotangent weights and their rim
+     * behaves as boundary. Pass the whole face set to treat the entire mesh as
+     * the region.
+     *   - `verts` / `verts_len` fill the `verts=%eb` element buffer in-slot;
+     *     these are the vertices free to move (all other verts are pinned as
+     *     fixed boundary conditions). May be null with `verts_len` 0 (no-op).
+     *   - `region_faces` / `region_faces_len` select the region faces. May be
+     *     null with `region_faces_len` 0, in which case no face is selected and
+     *     the assembly has no cotangent support (every free vert stays put).
+     *   - `lambda_factor` / `lambda_border` set the matching float in-slots.
+     *   - `use_x/y/z` set the matching bool in-slots; only enabled-axis
+     *     coordinates of the solution are written back.
+     *   - `preserve_volume` sets the matching bool in-slot; when true the mesh
+     *     volume is measured before/after and the free verts are rescaled about
+     *     the origin to restore it.
+     *
+     * The operator has no output slot; vertex positions are mutated in place,
+     * and face/edge SELECT flags are left as this shim set them. Element
+     * pointers must remain valid for the duration of the call. A mesh with no
+     * faces is a no-op. */
+    void bms_smooth_laplacian(BMesh *bm,
+                              BMVert **verts, int verts_len,
+                              BMFace **region_faces, int region_faces_len,
+                              float lambda_factor, float lambda_border,
+                              bool use_x, bool use_y, bool use_z,
+                              bool preserve_volume);
+
     /* Invoke BMesh's `symmetrize` operator: bisect `geom` along an
      * axis-aligned plane, clear the named half, then mirror the surviving
      * half across the plane and weld the duplicated geometry onto the

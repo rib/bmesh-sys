@@ -2940,6 +2940,47 @@ unsafe extern "C" {
         use_axis_z: bool,
     );
 
+    /// Invoke BMesh's `smooth_laplacian_vert` operator: relax each input vertex
+    /// by assembling and solving one cotangent-weighted Laplacian system (a
+    /// single implicit/backward-Euler smoothing step). Interior verts use the
+    /// area-normalised cotangent weights at strength `lambda_factor`; rim verts
+    /// (on a topological boundary or adjacent to a face outside the region) use
+    /// a uniform edge-length weighting at strength `lambda_border`.
+    ///
+    /// The smoothing region is carried by the face `SELECT` flags rather than a
+    /// slot, so this call clears `SELECT` on every face and edge, selects
+    /// exactly the faces in `region_faces` (length `region_faces_len`), and then
+    /// runs the operator. Pass the whole face set to treat the entire mesh as
+    /// the region; face/edge selection flags are left as set on return.
+    ///
+    /// `verts` (length `verts_len`) is the vertex buffer fed to the operator's
+    /// `verts` in-slot — the vertices free to move; every other vertex is pinned
+    /// as a fixed boundary condition. It may be null with `verts_len` `0` (a
+    /// no-op). `region_faces` may be null with `region_faces_len` `0`.
+    ///
+    /// `lambda_factor` / `lambda_border` are the interior / boundary smoothing
+    /// strengths. `use_x/y/z` gate write-back per axis (only enabled-axis
+    /// coordinates of the solution are applied). `preserve_volume`, when `true`,
+    /// rescales the free verts about the origin to restore the pre-smooth
+    /// volume.
+    ///
+    /// The operator has no output; vertex positions are mutated in place. A mesh
+    /// with no faces is a no-op. Element pointers must remain valid for the
+    /// duration of the call.
+    pub fn bms_smooth_laplacian(
+        bm: *mut BMesh,
+        verts: *mut *mut BMVert,
+        verts_len: c_int,
+        region_faces: *mut *mut BMFace,
+        region_faces_len: c_int,
+        lambda_factor: f32,
+        lambda_border: f32,
+        use_x: bool,
+        use_y: bool,
+        use_z: bool,
+        preserve_volume: bool,
+    );
+
     /// Invoke BMesh's `symmetrize` operator: bisect `geom` along an
     /// axis-aligned plane, clear the half selected by `direction`, then
     /// mirror the surviving half across the plane and weld the duplicated

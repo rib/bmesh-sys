@@ -5300,6 +5300,63 @@ extern "C"
         BMO_op_finish(bm, &op);
     }
 
+    /* Invoke BMesh's `smooth_laplacian_vert` operator: assemble and solve one
+     * cotangent-weighted Laplacian system over the named verts. See shim.h for
+     * the slot mapping and the region/free-variable split. The smoothing region
+     * is driven by the face SELECT flags, so this shim clears SELECT on all
+     * faces and edges, selects exactly `region_faces`, then runs the BMOP. */
+    void bms_smooth_laplacian(BMesh *bm,
+                              BMVert **verts, int verts_len,
+                              BMFace **region_faces, int region_faces_len,
+                              float lambda_factor, float lambda_border,
+                              bool use_x, bool use_y, bool use_z,
+                              bool preserve_volume)
+    {
+        using namespace blender;
+
+        /* The operator reads the region from the face SELECT flags and treats a
+         * boundary edge as a rim contributor only when it is unselected, so
+         * start from a clean slate: no edge selected, only the region faces
+         * selected. */
+        BMIter iter;
+        BMEdge *e;
+        BM_ITER_MESH(e, &iter, bm, BM_EDGES_OF_MESH)
+        {
+            BM_elem_flag_disable(e, BM_ELEM_SELECT);
+        }
+        BMFace *f;
+        BM_ITER_MESH(f, &iter, bm, BM_FACES_OF_MESH)
+        {
+            BM_elem_flag_disable(f, BM_ELEM_SELECT);
+        }
+        for (int i = 0; i < region_faces_len; i++)
+        {
+            BM_elem_flag_enable(region_faces[i], BM_ELEM_SELECT);
+        }
+
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "smooth_laplacian_vert verts=%eb "
+                          "lambda_factor=%f lambda_border=%f "
+                          "use_x=%b use_y=%b use_z=%b preserve_volume=%b",
+                          verts,
+                          verts_len,
+                          lambda_factor,
+                          lambda_border,
+                          use_x,
+                          use_y,
+                          use_z,
+                          preserve_volume))
+        {
+            return;
+        }
+
+        BMO_op_exec(bm, &op);
+        BMO_op_finish(bm, &op);
+    }
+
     /* Invoke BMesh's `symmetrize` operator: bisect `geom` along the plane
      * selected by `direction`, keep the named half, mirror it across the
      * plane, and weld at the seam within `dist`. See shim.h for the slot
