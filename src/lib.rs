@@ -1303,6 +1303,57 @@ unsafe extern "C" {
         out_cap: c_int,
     ) -> c_int;
 
+    /// Invoke BMesh's `face_attribute_fill` BMOP on the supplied face set.
+    /// The `faces` are destination faces that inherit their attributes (and,
+    /// optionally, winding) from their adjacent *unselected* faces. The fill
+    /// is a breadth-first flood from the destination faces that border an
+    /// unselected face, propagating inward so an interior destination face
+    /// inherits transitively. Both BMOP slots are forwarded explicitly:
+    ///
+    /// - `use_normals` — flip a destination face whose winding is incoherent
+    ///   with the unselected neighbour it inherits from.
+    /// - `use_data` — copy the neighbour's face-domain custom-data (including
+    ///   the material index) and interpolate its per-corner loop data across
+    ///   the shared edge.
+    ///
+    /// `faces` points to an array of `faces_len` face pointers belonging to
+    /// `bm`; the buffer is read, not modified. The operator's `faces_fail.out`
+    /// slot is not surfaced by this binding. Returns false if the operator
+    /// rejected the input.
+    pub fn bms_face_attribute_fill(
+        bm: *mut BMesh,
+        faces: *mut *mut BMFace,
+        faces_len: c_int,
+        use_normals: bool,
+        use_data: bool,
+    ) -> bool;
+
+    /// Capturing variant of [`bms_face_attribute_fill`].
+    ///
+    /// Runs the same `face_attribute_fill` BMOP and additionally copies the
+    /// operator's `faces_fail.out` slot — the destination faces that could
+    /// *not* be resolved because no unselected face was ever reachable from
+    /// them (e.g. an entire connected component was selected) — into the
+    /// caller-supplied buffer `out_buf` of capacity `out_cap` slots.
+    ///
+    /// Return value:
+    /// - `-1` on operator init failure (mirrors the `false` return of the
+    ///   non-capturing variant).
+    /// - `>= 0` on success: the *total* number of unresolved faces. Up to
+    ///   `min(total, out_cap)` pointers are written to `out_buf`; if
+    ///   `total > out_cap` the buffer was undersized.
+    ///
+    /// `out_buf` may be null only when `out_cap` is zero (size-probing mode).
+    pub fn bms_face_attribute_fill_out(
+        bm: *mut BMesh,
+        faces: *mut *mut BMFace,
+        faces_len: c_int,
+        use_normals: bool,
+        use_data: bool,
+        out_buf: *mut *mut BMFace,
+        out_cap: c_int,
+    ) -> c_int;
+
     /// Maps to BMesh's `grid_fill` operator: fill the rectangular region
     /// delimited by two opposing open edge loops with a regular grid of quad
     /// faces.
