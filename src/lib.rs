@@ -1303,6 +1303,43 @@ unsafe extern "C" {
         out_cap: c_int,
     ) -> c_int;
 
+    /// Invoke BMesh's `edgenet_prepare` BMOP on the supplied edge set. Treats
+    /// `edges` as an edge-net and bridges the free endpoints of open edge
+    /// chains by adding one or two connecting edges; branched nets are
+    /// rejected.
+    ///
+    /// `edges` points to an array of `edges_len` edge pointers belonging to
+    /// `bm`. The operator's `edges.out` slot is not surfaced by this binding.
+    /// Returns false if the operator rejected the input.
+    pub fn bms_edgenet_prepare(
+        bm: *mut BMesh,
+        edges: *mut *mut BMEdge,
+        edges_len: c_int,
+    ) -> bool;
+
+    /// Capturing variant of [`bms_edgenet_prepare`].
+    ///
+    /// Runs the same `edgenet_prepare` BMOP and additionally copies the
+    /// operator's `edges.out` slot — the connecting edge(s) the prepare
+    /// created — into the caller-supplied buffer `out_buf` of capacity
+    /// `out_cap` slots.
+    ///
+    /// Return value:
+    /// - `-1` on operator init failure (mirrors the `false` return of the
+    ///   non-capturing variant).
+    /// - `>= 0` on success: the *total* number of created edges. Up to
+    ///   `min(total, out_cap)` pointers are written to `out_buf` in the
+    ///   slot's emit order; if `total > out_cap` the buffer was undersized.
+    ///
+    /// `out_buf` may be null only when `out_cap` is zero (size-probing mode).
+    pub fn bms_edgenet_prepare_out(
+        bm: *mut BMesh,
+        edges: *mut *mut BMEdge,
+        edges_len: c_int,
+        out_buf: *mut *mut BMEdge,
+        out_cap: c_int,
+    ) -> c_int;
+
     /// Invoke BMesh's `edgenet_fill` BMOP on the supplied edge set. Treats
     /// `edges` as an edge-net and fills the closed regions it bounds with new
     /// faces. All four BMOP slots are forwarded explicitly:

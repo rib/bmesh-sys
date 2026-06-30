@@ -948,6 +948,38 @@ extern "C"
                              int mat_nr, bool use_smooth, int sides,
                              BMFace **out_buf, int out_cap);
 
+    /* Maps to BMesh's `edgenet_prepare` operator. Treats the supplied
+     * `edges` set as an edge-net and bridges the free endpoints of open
+     * edge chains by adding one or two connecting edges; branched nets are
+     * rejected. The single BMOP slot is forwarded:
+     *
+     *   - `edges` — the edge-net to prepare.
+     *
+     * The operator's `edges.out` slot is not surfaced by this binding.
+     *
+     * Returns true on success, false if BMO_op_initf rejected the input. */
+    bool bms_edgenet_prepare(BMesh *bm,
+                             BMEdge **edges, int edges_len);
+
+    /* Capturing variant of `bms_edgenet_prepare`.
+     *
+     * Runs the same `edgenet_prepare` BMOP but also copies the operator's
+     * `edges.out` slot — the connecting edge(s) the prepare created — into
+     * the caller-supplied buffer `out_buf` of capacity `out_cap` edge slots.
+     *
+     * Return value:
+     *   -1   on operator init failure (matches the `false` return of the
+     *        non-capturing variant).
+     *   >= 0 on success: the *total* number of edges the slot produced. Up
+     *        to `min(total, out_cap)` pointers are written to `out_buf` in
+     *        the slot's emit order; if the returned count exceeds `out_cap`,
+     *        the buffer was undersized.
+     *
+     * `out_buf` may be null only when `out_cap` is zero (size-probing mode). */
+    int bms_edgenet_prepare_out(BMesh *bm,
+                                BMEdge **edges, int edges_len,
+                                BMEdge **out_buf, int out_cap);
+
     /* Maps to BMesh's `face_attribute_fill` operator. Treats the supplied
      * `faces` set as destination faces that should inherit their attributes
      * (and, optionally, winding) from their adjacent *unselected* faces. The
