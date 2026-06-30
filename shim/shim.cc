@@ -3021,6 +3021,43 @@ extern "C"
         BMO_op_finish(bm, &op);
     }
 
+    int bms_create_grid_out(BMesh *bm,
+                            int x_segments,
+                            int y_segments,
+                            float size,
+                            const float matrix[16],
+                            bool calc_uvs,
+                            BMVert **out_buf, int out_cap)
+    {
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "create_grid x_segments=%i y_segments=%i size=%f "
+                          "matrix=%m4 calc_uvs=%b",
+                          x_segments,
+                          y_segments,
+                          size,
+                          matrix,
+                          calc_uvs))
+        {
+            return -1;
+        }
+        BMO_op_exec(bm, &op);
+
+        BMOpSlot *slot = BMO_slot_get(op.slots_out, "verts.out");
+        const int n = slot->len;
+        const int n_copy = (n < out_cap) ? n : out_cap;
+        BMVert **slot_items = reinterpret_cast<BMVert **>(slot->data.buf);
+        for (int i = 0; i < n_copy; ++i)
+        {
+            out_buf[i] = slot_items[i];
+        }
+
+        BMO_op_finish(bm, &op);
+        return n;
+    }
+
     void bms_create_cube(BMesh *bm,
                          float size,
                          const float matrix[16],
