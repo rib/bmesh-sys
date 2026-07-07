@@ -980,6 +980,49 @@ extern "C"
                                 BMEdge **edges, int edges_len,
                                 BMEdge **out_buf, int out_cap);
 
+    /* Maps to BMesh's `contextual_create` operator — the "make the most
+     * appropriate geometry from this selection" kernel (the editor's F-key
+     * make-edge / make-face command). The single input slot is a *mixed*
+     * element buffer (`%eb`) that may contain verts, edges, and/or faces;
+     * the operator inspects the counts of each kind and dispatches to one of
+     * several sub-behaviours (create an edge from two verts, fill an edge net
+     * or loop with faces, dissolve a face region, or build an n-gon over a
+     * vert cloud). Two BMOP knobs are forwarded:
+     *
+     *   - `mat_nr`     — material index stamped on faces this call creates.
+     *   - `use_smooth` — smooth flag stamped on faces this call creates.
+     *
+     * The operator's `faces.out` / `edges.out` slots are not surfaced by this
+     * binding; the created geometry is left on `bm`.
+     *
+     * `geom` points to an array of `geom_len` element-header pointers, each a
+     * vert/edge/face of `bm` cast to `BMHeader *`. Returns true on success,
+     * false if BMO_op_initf rejected the input. */
+    bool bms_contextual_create(BMesh *bm,
+                               BMHeader **geom, int geom_len,
+                               int mat_nr, bool use_smooth);
+
+    /* Capturing variant of `bms_contextual_create`.
+     *
+     * Runs the same `contextual_create` BMOP but also copies the operator's
+     * `faces.out` slot — the face(s) this call created (empty when the
+     * dispatch produced only an edge, dissolved nothing, or was a no-op) —
+     * into the caller-supplied buffer `out_faces` of capacity `out_cap` slots.
+     *
+     * Return value:
+     *   -1   on operator init failure (matches the `false` return of the
+     *        non-capturing variant).
+     *   >= 0 on success: the *total* number of faces the slot produced. Up to
+     *        `min(total, out_cap)` pointers are written to `out_faces` in the
+     *        slot's emit order; if the returned count exceeds `out_cap`, the
+     *        buffer was undersized.
+     *
+     * `out_faces` may be null only when `out_cap` is zero (size-probing mode). */
+    int bms_contextual_create_faces_out(BMesh *bm,
+                                        BMHeader **geom, int geom_len,
+                                        int mat_nr, bool use_smooth,
+                                        BMFace **out_faces, int out_cap);
+
     /* Maps to BMesh's `face_attribute_fill` operator. Treats the supplied
      * `faces` set as destination faces that should inherit their attributes
      * (and, optionally, winding) from their adjacent *unselected* faces. The

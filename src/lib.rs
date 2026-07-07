@@ -1387,6 +1387,55 @@ unsafe extern "C" {
         out_cap: c_int,
     ) -> c_int;
 
+    /// Invoke BMesh's `contextual_create` BMOP on a mixed selection — the
+    /// "make the most appropriate geometry from this selection" kernel (the
+    /// editor's F-key make-edge / make-face command). The `geom` slot is a
+    /// type-erased [`BMHeader`] buffer that may freely mix verts, edges, and
+    /// faces; the operator counts each kind and dispatches to one of several
+    /// sub-behaviours: create a single edge from exactly two verts, bridge and
+    /// fill an edge net or closed loop with faces, dissolve a face region, or
+    /// build an n-gon over a vert cloud. Two knobs are forwarded:
+    ///
+    /// - `mat_nr` — material index stamped on faces this call creates.
+    /// - `use_smooth` — smooth flag stamped on faces this call creates.
+    ///
+    /// `geom` points to an array of `geom_len` element-header pointers
+    /// belonging to `bm`. The operator's `faces.out` / `edges.out` slots are
+    /// not surfaced by this binding; created geometry is left on `bm`. Returns
+    /// false if the operator rejected the input.
+    pub fn bms_contextual_create(
+        bm: *mut BMesh,
+        geom: *mut *mut BMHeader,
+        geom_len: c_int,
+        mat_nr: c_int,
+        use_smooth: bool,
+    ) -> bool;
+
+    /// Capturing variant of [`bms_contextual_create`].
+    ///
+    /// Runs the same `contextual_create` BMOP and additionally copies the
+    /// operator's `faces.out` slot — the face(s) this call created (empty when
+    /// the dispatch produced only an edge, dissolved nothing, or was a no-op) —
+    /// into the caller-supplied buffer `out_faces` of capacity `out_cap` slots.
+    ///
+    /// Return value:
+    /// - `-1` on operator init failure (mirrors the `false` return of the
+    ///   non-capturing variant).
+    /// - `>= 0` on success: the *total* number of created faces. Up to
+    ///   `min(total, out_cap)` pointers are written to `out_faces` in the
+    ///   slot's emit order; if `total > out_cap` the buffer was undersized.
+    ///
+    /// `out_faces` may be null only when `out_cap` is zero (size-probing mode).
+    pub fn bms_contextual_create_faces_out(
+        bm: *mut BMesh,
+        geom: *mut *mut BMHeader,
+        geom_len: c_int,
+        mat_nr: c_int,
+        use_smooth: bool,
+        out_faces: *mut *mut BMFace,
+        out_cap: c_int,
+    ) -> c_int;
+
     /// Invoke BMesh's `face_attribute_fill` BMOP on the supplied face set.
     /// The `faces` are destination faces that inherit their attributes (and,
     /// optionally, winding) from their adjacent *unselected* faces. The fill
