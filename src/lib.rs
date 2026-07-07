@@ -1436,6 +1436,34 @@ unsafe extern "C" {
         out_cap: c_int,
     ) -> c_int;
 
+    /// Edge-slot capturing variant of [`bms_contextual_create`].
+    ///
+    /// Runs the same `contextual_create` BMOP and copies the operator's
+    /// `edges.out` slot into the caller-supplied buffer `out_edges` of capacity
+    /// `out_cap` slots. Per the operator's slot contract, `edges.out` reports
+    /// **only stand-alone edges** — an edge created (or reused) directly between
+    /// two selected verts — and never the boundary edges of a face the dispatch
+    /// built or capped. It is therefore empty for every face-making dispatch and
+    /// non-empty only for the two-vert edge branch.
+    ///
+    /// Return value:
+    /// - `-1` on operator init failure (mirrors the `false` return of the
+    ///   non-capturing variant).
+    /// - `>= 0` on success: the *total* number of edges the slot produced. Up to
+    ///   `min(total, out_cap)` pointers are written to `out_edges` in the
+    ///   slot's emit order; if `total > out_cap` the buffer was undersized.
+    ///
+    /// `out_edges` may be null only when `out_cap` is zero (size-probing mode).
+    pub fn bms_contextual_create_edges_out(
+        bm: *mut BMesh,
+        geom: *mut *mut BMHeader,
+        geom_len: c_int,
+        mat_nr: c_int,
+        use_smooth: bool,
+        out_edges: *mut *mut BMEdge,
+        out_cap: c_int,
+    ) -> c_int;
+
     /// Invoke BMesh's `face_attribute_fill` BMOP on the supplied face set.
     /// The `faces` are destination faces that inherit their attributes (and,
     /// optionally, winding) from their adjacent *unselected* faces. The fill

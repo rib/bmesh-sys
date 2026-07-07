@@ -3127,6 +3127,38 @@ extern "C"
         return n;
     }
 
+    int bms_contextual_create_edges_out(BMesh *bm,
+                                        BMHeader **geom, int geom_len,
+                                        int mat_nr, bool use_smooth,
+                                        BMEdge **out_edges, int out_cap)
+    {
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "contextual_create geom=%eb mat_nr=%i use_smooth=%b",
+                          geom,
+                          geom_len,
+                          mat_nr,
+                          use_smooth))
+        {
+            return -1;
+        }
+        BMO_op_exec(bm, &op);
+
+        BMOpSlot *slot = BMO_slot_get(op.slots_out, "edges.out");
+        const int n = slot->len;
+        const int n_copy = (n < out_cap) ? n : out_cap;
+        BMEdge **slot_items = reinterpret_cast<BMEdge **>(slot->data.buf);
+        for (int i = 0; i < n_copy; ++i)
+        {
+            out_edges[i] = slot_items[i];
+        }
+
+        BMO_op_finish(bm, &op);
+        return n;
+    }
+
     bool bms_face_attribute_fill(BMesh *bm,
                                  BMFace **faces, int faces_len,
                                  bool use_normals, bool use_data)
