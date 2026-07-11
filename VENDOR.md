@@ -53,7 +53,7 @@ Mesh creation in [`shim/shim.cc`](shim/shim.cc) (`bms_mesh_create`) sets
 | grid_fill | bmo_fill_grid.cc | |
 | holes_fill | bmo_fill_holes.cc | |
 | flatten_faces | bmo_flatten.cc | |
-| convex_hull | bmo_hull.cc | The bullet-physics path (`#ifdef WITH_BULLET`) stays disabled — `WITH_BULLET` is deliberately *not* defined in build.rs so the body compiles to empty. The operator definition is still in the table; calling it is a no-op. |
+| convex_hull | bmo_hull.cc | Enabled: `WITH_BULLET` is defined in build.rs and the 3D hull engine is vendored (see "3D convex-hull engine" below). |
 | inset_individual / inset_region | bmo_inset.cc | |
 | join_triangles | bmo_join_triangles.cc | |
 | mirror | bmo_mirror.cc | |
@@ -124,12 +124,36 @@ Beyond the original `bmesh_core/construct/delete/...` set, the operator framewor
 
 Eigen (MPL-2.0) is vendored under [`vendor/eigen/Eigen/`](vendor/eigen/Eigen/) as a header-only tree, and Blender's thin C-API wrapper (`linear_solver`, `matrix`, `svd`, `eigenvalues`) lives at [`vendor/eigen_capi/`](vendor/eigen_capi/). The wrapper translates 6 `EIG_*` calls used by bevel + smooth_laplacian into Eigen's sparse-LU / least-squares machinery, and also backs the C++ math algebra in `math_matrix.cc` + `math_solvers.cc`.
 
+## 3D convex-hull engine
+
+The `convex_hull` operator delegates its hull computation to a third-party engine, reached through a small C-API glue layer. Both are vendored:
+
+| File | LoC | Licence |
+|---|---|---|
+| [`vendor/bullet2/LinearMath/btConvexHullComputer.cpp`](vendor/bullet2/LinearMath/btConvexHullComputer.cpp) | 2760 | zlib |
+| [`vendor/bullet2/LinearMath/btConvexHullComputer.h`](vendor/bullet2/LinearMath/btConvexHullComputer.h) | 102 | zlib |
+| [`vendor/bullet2/LinearMath/btVector3.cpp`](vendor/bullet2/LinearMath/btVector3.cpp) | 1664 | zlib |
+| [`vendor/bullet2/LinearMath/btVector3.h`](vendor/bullet2/LinearMath/btVector3.h) | 1336 | zlib |
+| [`vendor/bullet2/LinearMath/btAlignedObjectArray.h`](vendor/bullet2/LinearMath/btAlignedObjectArray.h) | 504 | zlib |
+| [`vendor/bullet2/LinearMath/btAlignedAllocator.cpp`](vendor/bullet2/LinearMath/btAlignedAllocator.cpp) | 263 | zlib |
+| [`vendor/bullet2/LinearMath/btAlignedAllocator.h`](vendor/bullet2/LinearMath/btAlignedAllocator.h) | 115 | zlib |
+| [`vendor/bullet2/LinearMath/btScalar.h`](vendor/bullet2/LinearMath/btScalar.h) | 832 | zlib |
+| [`vendor/bullet2/LinearMath/btMinMax.h`](vendor/bullet2/LinearMath/btMinMax.h) | 69 | zlib |
+| [`vendor/rigidbody/rb_convex_hull_api.cpp`](vendor/rigidbody/rb_convex_hull_api.cpp) | 107 | GPL-2.0-or-later |
+| [`vendor/rigidbody/RBI_hull_api.h`](vendor/rigidbody/RBI_hull_api.h) | 36 | GPL-2.0-or-later |
+
+This is the **narrowest closure that compiles**: the hull computer plus the 3-vector type, growable aligned array, aligned allocator, min/max header and scalar/SIMD config header it includes. Nothing in the closure reaches collision, dynamics, threading, the task scheduler, or the serializer, and none of that is vendored. The engine's upstream licence headers are preserved verbatim; it enters as a permissively-licensed (zlib) component exactly as upstream ships it, and the crate's overall GPL-2.0-or-later posture is unchanged.
+
+The glue (`RBI_hull_api.h`) flattens the engine's half-edge adjacency into flat accessors — vertex count / loop count / facet count, per-facet loop walks, and each hull vertex's original input index. `bmo_hull.cc` calls it, and so does `bms_convex_hull_compute`, which exposes the engine's facets directly as a pure-geometry entry point (no BMesh involved).
+
 ## Build-flag conventions
 
 Set in [`build.rs`](build.rs):
 
 - **`WITH_TBB=0`** — disables Threading Building Blocks. We single-thread bmesh.
-- **`WITH_BULLET` / `WITH_GMP` undefined** — Blender uses `#ifdef WITH_X` (presence check); defining `WITH_BULLET=0` would *enable* the gated code. Both stay undefined.
+- **`WITH_GMP` undefined** — Blender uses `#ifdef WITH_X` (presence check); defining `WITH_GMP=0` would *enable* the gated code, so it stays undefined.
+- **`WITH_BULLET` defined** — admits the `convex_hull` operator. All four `#ifdef WITH_BULLET` sites in the vendored tree belong to that one feature (two bracket the operator body in `bmo_hull.cc`, two gate its op-def and its entry in the registration table in `bmesh_opdefines.cc`), so defining it exposes precisely `convex_hull` and nothing else.
+- **`BT_USE_DOUBLE_PRECISION`** — the hull engine's scalar posture. Its C-API glue is written against a double-precision scalar, which is also how the engine is configured upstream; this selects the generic (non-SIMD) code paths in the vendored math headers. A compile-time define, not a dependency.
 - **`-include shim/clog_stubs.h`** — force-includes the CLG_LOG macro stubs into every TU.
 
 ## Stubs in `shim/misc_stubs.cc`

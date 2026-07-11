@@ -34,10 +34,24 @@ fn main() {
         .std("c++20")
         .warnings(false)
         .flag_if_supported("-funsigned-char")
-        // Don't define WITH_GMP / WITH_BULLET — Blender's source uses
-        // `#ifdef WITH_FOO` (presence check), so even WITH_FOO=0 enables
-        // the gated code. We leave them undefined so the bullet-hull and
-        // GMP-boolean paths stay disabled.
+        // Don't define WITH_GMP — Blender's source uses `#ifdef WITH_FOO`
+        // (presence check), so even WITH_FOO=0 enables the gated code. We
+        // leave it undefined so the GMP-boolean path stays disabled.
+        //
+        // WITH_BULLET *is* defined: the 3D convex-hull engine and its C-API
+        // glue are vendored (see `hull_files` below), and this is the gate
+        // that admits the `convex_hull` operator. All four `#ifdef
+        // WITH_BULLET` sites in the vendored tree belong to that one feature
+        // (two bracket the operator body, two gate its op-def and its entry
+        // in the registration table), so defining it exposes precisely the
+        // `convex_hull` operator and nothing else.
+        .define("WITH_BULLET", None)
+        // The hull engine's scalar posture. Its C-API glue is written against
+        // a double-precision `btScalar`, which is also how the engine is
+        // configured upstream. This selects the generic (non-SIMD) code paths
+        // in the vendored math headers; it is a compile-time define, not a
+        // dependency.
+        .define("BT_USE_DOUBLE_PRECISION", None)
         .define("WITH_TBB", Some("0"))
         .define("BMESH_EMBEDDED_BUILD", Some("1"))
         // Force-include the stubs header into every TU so symbol stubs
@@ -59,6 +73,13 @@ fn main() {
         .include(vendor.join("eigen"))
         // Blender's thin C wrapper around Eigen (linear_solver, svd, etc.).
         .include(vendor.join("eigen_capi"))
+        // The 3D convex-hull engine (zlib-licensed). Its own sources include
+        // each other as `LinearMath/<header>`, so the include root is the
+        // directory *above* LinearMath/.
+        .include(vendor.join("bullet2"))
+        // The C-API glue that flattens the hull engine's half-edge adjacency
+        // into flat accessors (`RBI_hull_api.h`).
+        .include(vendor.join("rigidbody"))
         .include("shim");
 
     // guardedalloc's mallocn_intern.hh picks a malloc_usable_size strategy by
@@ -185,6 +206,18 @@ fn main() {
         "eigen_capi/intern/eigenvalues.cc",
     ];
 
+    // The 3D convex-hull engine plus the C-API glue the `convex_hull`
+    // operator calls. The engine is the self-contained hull corner of a
+    // physics library's math sub-library (zlib-licensed); its include closure
+    // is flat and touches no collision, dynamics, threading or serialization
+    // code. Compiled only because `WITH_BULLET` is defined above.
+    let hull_files: &[&str] = &[
+        "bullet2/LinearMath/btConvexHullComputer.cpp",
+        "bullet2/LinearMath/btVector3.cpp",
+        "bullet2/LinearMath/btAlignedAllocator.cpp",
+        "rigidbody/rb_convex_hull_api.cpp",
+    ];
+
     let mut all_files: Vec<String> = Vec::new();
     for f in bmesh_files
         .iter()
@@ -192,6 +225,7 @@ fn main() {
         .chain(guardedalloc_files)
         .chain(blenkernel_files)
         .chain(eigen_capi_files)
+        .chain(hull_files)
     {
         all_files.push((*f).to_string());
     }

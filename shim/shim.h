@@ -2777,6 +2777,114 @@ extern "C"
                                    int twist_offset,
                                    BMEdge **edges_out, int edges_cap);
 
+    /* ---- Convex hull ---- */
+
+    /* Invoke BMesh's `convex_hull` operator over the supplied input elements.
+     *
+     *   - `input`               — the input element buffer (verts, edges and
+     *                             faces are all accepted; the hull is built
+     *                             from the verts they span). Passed
+     *                             type-erased as BMHeader*. May be null only
+     *                             when `input_len == 0`.
+     *   - `use_existing_faces`  — when true, hull triangles that are already
+     *                             covered by a pre-existing face are not
+     *                             emitted; the existing face is kept instead.
+     *
+     * The mesh is mutated in place: the hull's faces are created, and input
+     * geometry that ends up strictly inside the hull is left in place but
+     * classified. After exec, the operator's four output slots are read back:
+     *
+     *   - `geom.out`          — every vert, edge and face on the hull.
+     *   - `geom_interior.out` — input elements that ended up inside the hull
+     *                           (not used by any output face).
+     *   - `geom_unused.out`   — the subset of the interior geometry that is
+     *                           completely unused.
+     *   - `geom_holes.out`    — edges and faces that were in the input and are
+     *                           part of the hull.
+     *
+     * Each slot is a heterogeneous element buffer; its pointers are written
+     * type-erased as BMHeader* into the matching `out_*` buffer, and the
+     * caller distinguishes verts / edges / faces via `bms_elem_htype`.
+     *
+     * For each slot, up to `*_cap` pointers are written and the full slot
+     * length is reported through the matching `r_*_len` out-param (which may
+     * be null); a reported length greater than its cap signals truncation.
+     * Each `out_*` buffer may be null only when its cap is zero
+     * (size-probing mode).
+     *
+     * Returns 0 on success, or -1 if BMO_op_initf rejected the input. */
+    int bms_convex_hull(BMesh *bm,
+                        BMHeader **input, int input_len,
+                        bool use_existing_faces,
+                        BMHeader **out_geom, int out_geom_cap,
+                        int *r_geom_len,
+                        BMHeader **out_interior, int out_interior_cap,
+                        int *r_interior_len,
+                        BMHeader **out_unused, int out_unused_cap,
+                        int *r_unused_len,
+                        BMHeader **out_holes, int out_holes_cap,
+                        int *r_holes_len);
+
+    /* Compute the 3D convex hull of a raw point cloud, exposing the hull
+     * engine's face loops directly. This is a pure geometry entry point: it
+     * builds no mesh and touches no BMesh state. It is the same engine, on the
+     * same code path, that the `convex_hull` operator uses internally.
+     *
+     *   - `coords`     — `coords_len` input points. May be null only when
+     *                    `coords_len == 0`.
+     *
+     * Three parallel outputs describe the hull:
+     *
+     *   - `out_orig_index[h]` — for each hull vertex `h`, the index into
+     *                           `coords` of the input point it came from.
+     *                           Input points that are not on the hull (and
+     *                           duplicates merged by the engine) have no hull
+     *                           vertex, so this mapping is injective but not
+     *                           onto. Capacity `out_verts_cap`; true length
+     *                           reported in `*r_verts_len`.
+     *   - `out_face_sizes[f]` — the loop length of hull facet `f`. Facets are
+     *                           the engine's own — coplanar facets are already
+     *                           merged into a single n-gon, so a facet is not
+     *                           necessarily a triangle. Capacity
+     *                           `out_faces_cap`; true length (the facet count)
+     *                           reported in `*r_faces_len`.
+     *   - `out_loops`         — the facets' vertex loops, concatenated in
+     *                           facet order: facet `f` occupies the
+     *                           `out_face_sizes[f]` entries following those of
+     *                           facets `0..f-1`. Each entry is a *hull* vertex
+     *                           index (an index into the `out_orig_index`
+     *                           mapping above, not into `coords`). Capacity
+     *                           `out_loops_cap`; true total length reported in
+     *                           `*r_loops_len`.
+     *
+     * Each loop is reported exactly as the engine emits it: same starting
+     * vertex, same winding (outward-facing), no sorting, rotation or
+     * renormalisation of any kind, and no facet is dropped -- a degenerate
+     * facet of fewer than three vertices, should the engine ever emit one, is
+     * reported with its true size rather than filtered out. Loops are
+     * truncated only by the caps.
+     *
+     * For each output, a reported length greater than its cap signals
+     * truncation, and the buffer may be null only when its cap is zero
+     * (size-probing mode: pass all three caps as zero to learn the sizes,
+     * then call again with buffers).
+     *
+     * A hull needs at least four non-coplanar points. When the input is empty,
+     * or degenerate (all points coincident, collinear or coplanar), the engine
+     * may report a hull with no facets; the vertex list can still be
+     * non-empty. Callers should treat `*r_faces_len == 0` as "no volumetric
+     * hull", not as an error.
+     *
+     * Returns 0 on success, or -1 if the input was rejected (null `coords`
+     * with a non-zero `coords_len`, or a negative length or capacity). */
+    int bms_convex_hull_compute(const float (*coords)[3], int coords_len,
+                                int *out_orig_index, int out_verts_cap,
+                                int *r_verts_len,
+                                int *out_loops, int out_loops_cap,
+                                int *r_loops_len,
+                                int *out_face_sizes, int out_faces_cap,
+                                int *r_faces_len);
+
     /* ---- Region-inset customdata-merge trace ---- */
 
     /* One per-corner customdata-merge invocation recorded by

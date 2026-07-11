@@ -33,6 +33,9 @@
 #include "DNA_customdata_types.h"
 #include "DNA_modifier_types.h"
 #include "MEM_guardedalloc.h"
+/* The convex-hull engine's C-API glue: flat accessors over the engine's
+ * half-edge adjacency. Same entry points the `convex_hull` operator uses. */
+#include "RBI_hull_api.h"
 
 #include <array>
 #include <cstdint>
@@ -5814,6 +5817,160 @@ extern "C"
 
         BMO_op_finish(bm, &op);
         return n;
+    }
+
+    /* ---- Convex hull ---- */
+
+    /* Copy one heterogeneous element-buffer output slot into a caller buffer,
+     * reporting the slot's true length. Used by bms_convex_hull, which reads
+     * back four such slots. */
+    static void hull_slot_copy_out(BMOperator *op, const char *slot_name,
+                                   BMHeader **out_buf, int out_cap, int *r_len)
+    {
+        BMOpSlot *slot = BMO_slot_get(op->slots_out, slot_name);
+        const int n = slot->len;
+        const int n_copy = (n < out_cap) ? n : out_cap;
+        BMHeader **items = reinterpret_cast<BMHeader **>(slot->data.buf);
+        for (int i = 0; i < n_copy; ++i)
+        {
+            out_buf[i] = items[i];
+        }
+        if (r_len)
+        {
+            *r_len = n;
+        }
+    }
+
+    int bms_convex_hull(BMesh *bm,
+                        BMHeader **input, int input_len,
+                        bool use_existing_faces,
+                        BMHeader **out_geom, int out_geom_cap,
+                        int *r_geom_len,
+                        BMHeader **out_interior, int out_interior_cap,
+                        int *r_interior_len,
+                        BMHeader **out_unused, int out_unused_cap,
+                        int *r_unused_len,
+                        BMHeader **out_holes, int out_holes_cap,
+                        int *r_holes_len)
+    {
+        BMOperator op;
+        if (!BMO_op_initf(bm,
+                          &op,
+                          BMO_FLAG_DEFAULTS,
+                          "convex_hull input=%eb use_existing_faces=%b",
+                          input,
+                          input_len,
+                          use_existing_faces))
+        {
+            return -1;
+        }
+
+        BMO_op_exec(bm, &op);
+
+        hull_slot_copy_out(&op, "geom.out", out_geom, out_geom_cap, r_geom_len);
+        hull_slot_copy_out(&op, "geom_interior.out", out_interior, out_interior_cap,
+                           r_interior_len);
+        hull_slot_copy_out(&op, "geom_unused.out", out_unused, out_unused_cap,
+                           r_unused_len);
+        hull_slot_copy_out(&op, "geom_holes.out", out_holes, out_holes_cap, r_holes_len);
+
+        BMO_op_finish(bm, &op);
+        return 0;
+    }
+
+    int bms_convex_hull_compute(const float (*coords)[3], int coords_len,
+                                int *out_orig_index, int out_verts_cap,
+                                int *r_verts_len,
+                                int *out_loops, int out_loops_cap,
+                                int *r_loops_len,
+                                int *out_face_sizes, int out_faces_cap,
+                                int *r_faces_len)
+    {
+        if ((coords == nullptr && coords_len != 0) || coords_len < 0 ||
+            out_verts_cap < 0 || out_loops_cap < 0 || out_faces_cap < 0)
+        {
+            return -1;
+        }
+
+        if (r_verts_len)
+        {
+            *r_verts_len = 0;
+        }
+        if (r_loops_len)
+        {
+            *r_loops_len = 0;
+        }
+        if (r_faces_len)
+        {
+            *r_faces_len = 0;
+        }
+        if (coords_len == 0)
+        {
+            return 0;
+        }
+
+        /* The engine's entry point takes a mutable pointer but only reads the
+         * point cloud through it. */
+        plConvexHull hull =
+            plConvexHullCompute(const_cast<float(*)[3]>(coords), coords_len);
+        if (hull == nullptr)
+        {
+            return -1;
+        }
+
+        /* Hull vertices, in the engine's own order. Each carries the index of
+         * the input point it came from. */
+        const int verts_n = plConvexHullNumVertices(hull);
+        const int verts_copy = (verts_n < out_verts_cap) ? verts_n : out_verts_cap;
+        for (int i = 0; i < verts_copy; ++i)
+        {
+            float co[3];
+            int original_index = -1;
+            plConvexHullGetVertex(hull, i, co, &original_index);
+            out_orig_index[i] = original_index;
+        }
+        if (r_verts_len)
+        {
+            *r_verts_len = verts_n;
+        }
+
+        /* Facets, verbatim: the engine's facet order, loop start vertex and
+         * winding pass straight through. Nothing is sorted, rotated, re-merged
+         * or filtered -- a facet's loop is reported exactly as the engine walks
+         * it, and even a degenerate facet keeps its true reported size. */
+        const int faces_n = plConvexHullNumFaces(hull);
+        int loops_total = 0;
+        for (int f = 0; f < faces_n; ++f)
+        {
+            const int face_size = plConvexHullGetFaceSize(hull, f);
+
+            if (f < out_faces_cap)
+            {
+                out_face_sizes[f] = face_size;
+            }
+
+            /* Write a facet's loop only when it fits whole in what is left of
+             * the loop buffer: a half-written loop would be indistinguishable
+             * from a complete one. `loops_total` keeps accumulating either way,
+             * so a truncated caller still learns the exact size to re-query
+             * with. */
+            if (face_size > 0 && loops_total + face_size <= out_loops_cap)
+            {
+                plConvexHullGetFaceVertices(hull, f, out_loops + loops_total);
+            }
+            loops_total += face_size;
+        }
+        if (r_faces_len)
+        {
+            *r_faces_len = faces_n;
+        }
+        if (r_loops_len)
+        {
+            *r_loops_len = loops_total;
+        }
+
+        plConvexHullDelete(hull);
+        return 0;
     }
 
     /* ---- Whole-mesh traversal micro-workloads ---- */

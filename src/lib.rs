@@ -3317,6 +3317,108 @@ unsafe extern "C" {
     ) -> c_int;
 }
 
+// ---- Convex hull ----
+
+unsafe extern "C" {
+    /// Invoke BMesh's `convex_hull` BMOP over `input` (a heterogeneous element
+    /// buffer of verts, edges and faces, type-erased as `*mut BMHeader`), and
+    /// read back its four output slots.
+    ///
+    /// - `input` may be null only when `input_len == 0`.
+    /// - `use_existing_faces` — when true, hull triangles already covered by a
+    ///   pre-existing face are not emitted.
+    ///
+    /// The four outputs are `geom.out` (everything on the hull),
+    /// `geom_interior.out` (input elements left inside it), `geom_unused.out`
+    /// (the completely unused subset of those), and `geom_holes.out` (input
+    /// edges/faces that are part of the hull). Each is written type-erased into
+    /// its `out_*` buffer; use [`bms_elem_htype`] to discriminate.
+    ///
+    /// For every slot, up to `*_cap` pointers are written and the slot's true
+    /// length is reported through `r_*_len` (which may be null); a reported
+    /// length exceeding its cap means the buffer was undersized. Each `out_*`
+    /// buffer may be null only when its cap is zero (size-probing).
+    ///
+    /// The returned pointers borrow from `bm` and are invalidated by any
+    /// subsequent mutation of it. Returns `0` on success, `-1` if the operator
+    /// rejected the input.
+    ///
+    /// # Safety
+    /// `bm` must be a valid mesh; `input` must point to `input_len` valid
+    /// elements of that mesh; each non-null `out_*` must be writable for its
+    /// stated capacity.
+    #[allow(clippy::too_many_arguments)]
+    pub fn bms_convex_hull(
+        bm: *mut BMesh,
+        input: *mut *mut BMHeader,
+        input_len: c_int,
+        use_existing_faces: bool,
+        out_geom: *mut *mut BMHeader,
+        out_geom_cap: c_int,
+        r_geom_len: *mut c_int,
+        out_interior: *mut *mut BMHeader,
+        out_interior_cap: c_int,
+        r_interior_len: *mut c_int,
+        out_unused: *mut *mut BMHeader,
+        out_unused_cap: c_int,
+        r_unused_len: *mut c_int,
+        out_holes: *mut *mut BMHeader,
+        out_holes_cap: c_int,
+        r_holes_len: *mut c_int,
+    ) -> c_int;
+
+    /// Compute the 3D convex hull of a raw point cloud, exposing the hull
+    /// engine's facets directly. Pure geometry: no `BMesh` is involved. This is
+    /// the same engine, on the same code path, that [`bms_convex_hull`] drives
+    /// internally.
+    ///
+    /// Three parallel outputs describe the hull:
+    ///
+    /// - `out_orig_index[h]` — for hull vertex `h`, the index into `coords` of
+    ///   the input point it came from. Length `*r_verts_len`.
+    /// - `out_face_sizes[f]` — the loop length of hull facet `f`. Facets are the
+    ///   engine's own, with coplanar facets already merged, so a facet need not
+    ///   be a triangle. Length (the facet count) `*r_faces_len`.
+    /// - `out_loops` — the facets' vertex loops concatenated in facet order:
+    ///   facet `f` occupies the `out_face_sizes[f]` entries following those of
+    ///   facets `0..f`. Each entry is a *hull* vertex index — an index into
+    ///   `out_orig_index`, not into `coords`. Total length `*r_loops_len`.
+    ///
+    /// Loops are reported verbatim: the engine's facet order, loop start vertex
+    /// and winding are preserved exactly, with no sorting, rotation, re-merging
+    /// or filtering.
+    ///
+    /// For each output, up to its `*_cap` entries are written and the true
+    /// length is reported through the matching `r_*_len` (which may be null); a
+    /// reported length exceeding its cap means the buffer was undersized. A
+    /// facet's loop is written only if it fits whole, so `out_loops` never holds
+    /// a partial loop. Passing all three caps as zero probes the sizes.
+    ///
+    /// A hull needs at least four non-coplanar points; for empty or degenerate
+    /// input the facet count may legitimately be zero (with a non-empty vertex
+    /// list). That is not an error. Returns `0` on success, `-1` if the input
+    /// was rejected (null `coords` with non-zero `coords_len`, or a negative
+    /// length or capacity).
+    ///
+    /// # Safety
+    /// `coords` must point to `coords_len` points; each non-null output buffer
+    /// must be writable for its stated capacity.
+    #[allow(clippy::too_many_arguments)]
+    pub fn bms_convex_hull_compute(
+        coords: *const [f32; 3],
+        coords_len: c_int,
+        out_orig_index: *mut c_int,
+        out_verts_cap: c_int,
+        r_verts_len: *mut c_int,
+        out_loops: *mut c_int,
+        out_loops_cap: c_int,
+        r_loops_len: *mut c_int,
+        out_face_sizes: *mut c_int,
+        out_faces_cap: c_int,
+        r_faces_len: *mut c_int,
+    ) -> c_int;
+}
+
 // ---- Delimit bits for `bms_dissolve_limit` ----
 //
 // Bitmask values matching BMesh's `BMO_Delimit` enum. Combine with `|`.
@@ -4157,6 +4259,165 @@ mod tests {
                 /* vmesh_method ADJ */ 0,
             );
             assert!(ok);
+
+            bms_mesh_free(bm);
+        }
+    }
+
+    /// The bare hull-compute entry point on the 8 corners of a cube: every
+    /// input point is on the hull, and the engine merges each face's coplanar
+    /// facets, so the hull is 8 vertices / 6 quads / 24 loop entries.
+    #[test]
+    fn convex_hull_compute_of_cube_cloud() {
+        let coords: [[f32; 3]; 8] = [
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [1.0, 1.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, 1.0],
+            [1.0, 0.0, 1.0],
+            [1.0, 1.0, 1.0],
+            [0.0, 1.0, 1.0],
+        ];
+
+        unsafe {
+            // Size-probe first: all caps zero, all buffers null.
+            let mut verts_len: c_int = -1;
+            let mut loops_len: c_int = -1;
+            let mut faces_len: c_int = -1;
+            let rc = bms_convex_hull_compute(
+                coords.as_ptr(),
+                coords.len() as c_int,
+                core::ptr::null_mut(),
+                0,
+                &mut verts_len,
+                core::ptr::null_mut(),
+                0,
+                &mut loops_len,
+                core::ptr::null_mut(),
+                0,
+                &mut faces_len,
+            );
+            assert_eq!(rc, 0);
+            assert_eq!(verts_len, 8);
+            assert_eq!(faces_len, 6);
+            assert_eq!(loops_len, 24);
+
+            // Re-query with buffers sized from the probe.
+            let mut orig_index = vec![-1 as c_int; verts_len as usize];
+            let mut loops = vec![-1 as c_int; loops_len as usize];
+            let mut face_sizes = vec![-1 as c_int; faces_len as usize];
+            let rc = bms_convex_hull_compute(
+                coords.as_ptr(),
+                coords.len() as c_int,
+                orig_index.as_mut_ptr(),
+                verts_len,
+                core::ptr::null_mut(),
+                loops.as_mut_ptr(),
+                loops_len,
+                core::ptr::null_mut(),
+                face_sizes.as_mut_ptr(),
+                faces_len,
+                core::ptr::null_mut(),
+            );
+            assert_eq!(rc, 0);
+
+            // Every cube corner is on the hull, each exactly once.
+            let mut seen = orig_index.clone();
+            seen.sort_unstable();
+            assert_eq!(seen, (0..8).collect::<Vec<c_int>>());
+
+            // Six quad facets, and their loops exactly fill the loop buffer.
+            assert_eq!(face_sizes, vec![4; 6]);
+            assert_eq!(face_sizes.iter().sum::<c_int>(), loops_len);
+
+            // Every loop entry is a valid hull-vertex index, and each hull
+            // vertex is used by exactly three facets (a cube corner).
+            let mut use_count = vec![0; verts_len as usize];
+            for &hull_vert in &loops {
+                assert!(hull_vert >= 0 && hull_vert < verts_len);
+                use_count[hull_vert as usize] += 1;
+            }
+            assert_eq!(use_count, vec![3; verts_len as usize]);
+        }
+    }
+
+    /// The `convex_hull` BMOP over a loose point cloud: with no pre-existing
+    /// faces, the hull's surgery adds the hull faces and reports them through
+    /// `geom.out`, leaving the interior slots empty.
+    #[test]
+    fn convex_hull_bmop_over_loose_verts() {
+        // A cube's 8 corners plus one strictly interior point.
+        let coords: [[f32; 3]; 9] = [
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [1.0, 1.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, 1.0],
+            [1.0, 0.0, 1.0],
+            [1.0, 1.0, 1.0],
+            [0.0, 1.0, 1.0],
+            [0.5, 0.5, 0.5],
+        ];
+
+        unsafe {
+            let bm = bms_mesh_create();
+            assert!(!bm.is_null());
+
+            let input: Vec<*mut BMHeader> = coords
+                .iter()
+                .map(|co| bms_vert_create(bm, co.as_ptr()) as *mut BMHeader)
+                .collect();
+            assert!(input.iter().all(|h| !h.is_null()));
+
+            let mut geom = vec![core::ptr::null_mut::<BMHeader>(); 256];
+            let mut interior = vec![core::ptr::null_mut::<BMHeader>(); 256];
+            let (mut geom_len, mut interior_len) = (-1 as c_int, -1 as c_int);
+            let (mut unused_len, mut holes_len) = (-1 as c_int, -1 as c_int);
+
+            let rc = bms_convex_hull(
+                bm,
+                input.as_ptr().cast_mut(),
+                input.len() as c_int,
+                false, // use_existing_faces
+                geom.as_mut_ptr(),
+                geom.len() as c_int,
+                &mut geom_len,
+                interior.as_mut_ptr(),
+                interior.len() as c_int,
+                &mut interior_len,
+                core::ptr::null_mut(),
+                0,
+                &mut unused_len,
+                core::ptr::null_mut(),
+                0,
+                &mut holes_len,
+            );
+            assert_eq!(rc, 0);
+
+            const BM_FACE: c_int = 8;
+
+            // The hull is closed and triangulated: 8 verts, 12 tris, 18 edges
+            // (Euler: 8 - 18 + 12 = 2). The interior point stays in the mesh
+            // but is used by no hull face.
+            assert_eq!(bms_totvert(bm), 9);
+            assert_eq!(bms_totface(bm), 12);
+            assert_eq!(bms_totedge(bm), 18);
+
+            // `geom.out` reports the whole hull; nothing was truncated.
+            assert!(geom_len > 0 && geom_len <= geom.len() as c_int);
+            let hull_faces = geom[..geom_len as usize]
+                .iter()
+                .filter(|h| bms_elem_htype((**h).cast::<core::ffi::c_void>()) == BM_FACE)
+                .count();
+            assert_eq!(hull_faces, 12);
+
+            // The one point inside the hull is classified as interior.
+            assert_eq!(interior_len, 1);
+            assert_eq!(interior[0], input[8]);
+
+            // No pre-existing faces or edges went in, so there are no holes.
+            assert_eq!(holes_len, 0);
 
             bms_mesh_free(bm);
         }
