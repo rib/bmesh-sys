@@ -80,6 +80,61 @@ extern "C"
     void bms_loop_reverse(BMesh *bm, BMFace *f);
     BMEdge *bms_edge_separate(BMesh *bm, BMEdge *e, BMLoop *l_sep);
 
+    /* Radial-cycle reads.
+     *
+     * An edge stores a single pointer into its radial cycle -- its *entry*
+     * loop -- and the cycle is doubly linked through each loop's radial
+     * links. Both the entry and the cycle order are meaningful: BMesh
+     * appends each newly attached loop immediately after the current entry
+     * and then re-seats the entry onto it, and removes a loop by re-seating
+     * the entry forward onto its radial successor when (and only when) the
+     * removed loop *was* the entry. Operators that rebuild a radial cycle by
+     * walking it (the edge splice is the archetype) therefore observe the
+     * entry and the order, neither of which survives a topology-only
+     * comparison of the resulting mesh. These reads expose both. */
+
+    /* The edge's stored radial entry loop (null for a wire edge). */
+    BMLoop *bms_edge_radial_entry(BMEdge *e);
+
+    /* Walk `e`'s radial cycle forward from its entry, writing the loops in
+     * visit order into `out_loops` (up to `out_cap`). Returns the true radial
+     * length, so a caller detects truncation; `out_loops` may be null when
+     * `out_cap` is 0 to obtain just the length. Returns 0 for a wire edge. */
+    int bms_edge_radial_loops(BMEdge *e, BMLoop **out_loops, int out_cap);
+
+    /* As bms_edge_radial_loops, but writes each visited loop's face. */
+    int bms_edge_radial_faces(BMEdge *e, BMFace **out_faces, int out_cap);
+
+    /* Disk-cycle reads.
+     *
+     * A vertex stores a single pointer into its disk cycle -- its *anchor*
+     * edge -- and the cycle is doubly linked through each edge's per-endpoint
+     * disk links. The anchor is seated on the first edge attached to the
+     * vertex; a later attachment splices in just *behind* the anchor and does
+     * not move it; removing the anchor edge re-seats the anchor forward onto
+     * its disk successor at that vertex (and clears it when the vertex's last
+     * edge goes). The anchor is therefore always the earliest-attached
+     * surviving incident edge, and the forward walk from it enumerates the
+     * incident edges in attachment order. Both the anchor and that order are
+     * observed by BMesh operators that resolve a choice by "the first face
+     * around this vertex", and neither survives a topology-only comparison of
+     * the resulting mesh. These reads expose both. */
+
+    /* The vertex's stored disk anchor edge (null for an isolated vertex). */
+    BMEdge *bms_vert_disk_anchor(BMVert *v);
+
+    /* Walk `v`'s disk cycle forward from its anchor, writing the edges in visit
+     * order into `out_edges` (up to `out_cap`). Returns the true vertex degree,
+     * so a caller detects truncation; `out_edges` may be null when `out_cap` is
+     * 0 to obtain just the degree. Returns 0 for an isolated vertex. */
+    int bms_vert_disk_edges(BMVert *v, BMEdge **out_edges, int out_cap);
+
+    /* Per-loop accessors: owning face, radial edge, and the two radial links. */
+    BMFace *bms_loop_face(BMLoop *l);
+    BMEdge *bms_loop_edge(BMLoop *l);
+    BMLoop *bms_loop_radial_next(BMLoop *l);
+    BMLoop *bms_loop_radial_prev(BMLoop *l);
+
     /* Element counts. */
     int bms_totvert(BMesh *bm);
     int bms_totedge(BMesh *bm);

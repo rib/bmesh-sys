@@ -208,6 +208,80 @@ unsafe extern "C" {
     /// bmesh: `l->v`. Returns the loop's vertex.
     pub fn bms_loop_vert(l: *mut BMLoop) -> *mut BMVert;
 
+    /// bmesh: `l->f`. Returns the face the loop is a corner of.
+    pub fn bms_loop_face(l: *mut BMLoop) -> *mut BMFace;
+
+    /// bmesh: `l->e`. Returns the edge whose radial cycle the loop is in.
+    pub fn bms_loop_edge(l: *mut BMLoop) -> *mut BMEdge;
+
+    /// bmesh: `l->radial_next` / `l->radial_prev`. The neighbours of `l` in the
+    /// radial cycle of `l->e`.
+    pub fn bms_loop_radial_next(l: *mut BMLoop) -> *mut BMLoop;
+    pub fn bms_loop_radial_prev(l: *mut BMLoop) -> *mut BMLoop;
+
+    /// bmesh: `e->l`. The edge's stored **radial entry** loop — the pointer left
+    /// behind by BMesh's two local rules (an appended loop splices in after the
+    /// current entry and the entry moves onto it; a removed loop re-seats the
+    /// entry forward onto its radial successor, and only when the removed loop
+    /// *was* the entry). On a cycle that has only ever been appended to, that
+    /// coincides with the last-attached loop; after any removal it does not, so
+    /// read this rather than re-deriving it from attachment order. Null for a
+    /// wire edge.
+    pub fn bms_edge_radial_entry(e: *mut BMEdge) -> *mut BMLoop;
+
+    /// Walk `e`'s radial cycle forward from its entry (`e->l`), writing the
+    /// loops in visit order into `out_loops` (up to `out_cap` of them).
+    ///
+    /// Returns the true radial length so callers detect truncation; `out_loops`
+    /// may be null when `out_cap` is 0 to obtain just the length. Returns 0 for
+    /// a wire edge.
+    ///
+    /// Both the start point and the order are observable properties of the
+    /// cycle: BMesh splices each newly attached loop in immediately after the
+    /// current entry and re-seats the entry onto it, and a removal re-seats the
+    /// entry forward onto the removed loop's radial successor exactly when the
+    /// removed loop was the entry. Neither survives a topology-only comparison
+    /// of the mesh, so an order-sensitive caller has to read them directly.
+    pub fn bms_edge_radial_loops(
+        e: *mut BMEdge,
+        out_loops: *mut *mut BMLoop,
+        out_cap: c_int,
+    ) -> c_int;
+
+    /// As [`bms_edge_radial_loops`], but writes each visited loop's face.
+    pub fn bms_edge_radial_faces(
+        e: *mut BMEdge,
+        out_faces: *mut *mut BMFace,
+        out_cap: c_int,
+    ) -> c_int;
+
+    /// bmesh: `v->e`. The vertex's stored **disk anchor** edge — the entry into
+    /// its disk cycle. Seated on the first edge attached to the vertex and left
+    /// alone by later attachments (which splice in behind it); re-seated forward
+    /// onto its disk successor when the anchor edge itself is removed. It is
+    /// therefore always the earliest-attached *surviving* incident edge. Null for
+    /// an isolated vertex.
+    pub fn bms_vert_disk_anchor(v: *mut BMVert) -> *mut BMEdge;
+
+    /// Walk `v`'s disk cycle forward from its anchor (`v->e`), writing the edges
+    /// in visit order into `out_edges` (up to `out_cap` of them).
+    ///
+    /// Returns the true vertex degree so callers detect truncation; `out_edges`
+    /// may be null when `out_cap` is 0 to obtain just the degree. Returns 0 for an
+    /// isolated vertex.
+    ///
+    /// Both the start point and the order are observable properties of the cycle:
+    /// the walk enumerates the incident edges in attachment order (restricted to
+    /// the survivors of any removals), and BMesh operators that resolve a choice
+    /// by "the first face around this vertex" read it back. Neither survives a
+    /// topology-only comparison of the mesh, so an order-sensitive caller has to
+    /// read them directly.
+    pub fn bms_vert_disk_edges(
+        v: *mut BMVert,
+        out_edges: *mut *mut BMEdge,
+        out_cap: c_int,
+    ) -> c_int;
+
     /// bmesh: `f->mat_nr`. Returns the face's material-slot index.
     pub fn bms_face_get_mat_nr(f: *const BMFace) -> std::os::raw::c_short;
 

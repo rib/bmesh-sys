@@ -16,6 +16,7 @@
 #include "intern/bmesh_mesh.hh"
 #include "intern/bmesh_mesh_tessellate.hh"
 #include "intern/bmesh_polygon.hh"
+#include "intern/bmesh_structure.hh"
 #include "intern/bmesh_construct.hh"
 #include "intern/bmesh_interp.hh"
 #include "intern/bmesh_operator_api.hh"
@@ -243,6 +244,90 @@ extern "C"
     BMVert *bms_loop_vert(BMLoop *l)
     {
         return l ? l->v : nullptr;
+    }
+
+    BMFace *bms_loop_face(BMLoop *l)
+    {
+        return l ? l->f : nullptr;
+    }
+
+    BMEdge *bms_loop_edge(BMLoop *l)
+    {
+        return l ? l->e : nullptr;
+    }
+
+    BMLoop *bms_loop_radial_next(BMLoop *l)
+    {
+        return l ? l->radial_next : nullptr;
+    }
+
+    BMLoop *bms_loop_radial_prev(BMLoop *l)
+    {
+        return l ? l->radial_prev : nullptr;
+    }
+
+    BMLoop *bms_edge_radial_entry(BMEdge *e)
+    {
+        return e ? e->l : nullptr;
+    }
+
+    int bms_edge_radial_loops(BMEdge *e, BMLoop **out_loops, int out_cap)
+    {
+        if (e == nullptr || e->l == nullptr) {
+            return 0;
+        }
+        BMLoop *start = e->l;
+        BMLoop *iter = start;
+        int count = 0;
+        do {
+            if (out_loops != nullptr && count < out_cap) {
+                out_loops[count] = iter;
+            }
+            count++;
+            iter = iter->radial_next;
+        } while (iter != start && count < 1000000);
+        return count;
+    }
+
+    int bms_edge_radial_faces(BMEdge *e, BMFace **out_faces, int out_cap)
+    {
+        if (e == nullptr || e->l == nullptr) {
+            return 0;
+        }
+        BMLoop *start = e->l;
+        BMLoop *iter = start;
+        int count = 0;
+        do {
+            if (out_faces != nullptr && count < out_cap) {
+                out_faces[count] = iter->f;
+            }
+            count++;
+            iter = iter->radial_next;
+        } while (iter != start && count < 1000000);
+        return count;
+    }
+
+    BMEdge *bms_vert_disk_anchor(BMVert *v)
+    {
+        return v ? v->e : nullptr;
+    }
+
+    int bms_vert_disk_edges(BMVert *v, BMEdge **out_edges, int out_cap)
+    {
+        if (v == nullptr || v->e == nullptr) {
+            return 0;
+        }
+        BMEdge *start = v->e;
+        BMEdge *iter = start;
+        int count = 0;
+        do {
+            if (out_edges != nullptr && count < out_cap) {
+                out_edges[count] = iter;
+            }
+            count++;
+            iter = bmesh_disk_edge_next(iter, v);
+        } while (iter != start && count < 1000000);
+        return count;
     }
 
     /* High-level wrappers. */
