@@ -2655,6 +2655,17 @@ extern "C"
     void bms_elem_get_int(void *elem, int offset, int *out);
     void bms_elem_set_int(void *elem, int offset, int value);
 
+    /* Single-byte boolean accessors, for `CD_PROP_BOOL` layers. The value is
+     * carried across the C ABI as an `unsigned char` (0 = false, non-zero =
+     * true) rather than a C++ `bool`, so callers need not assume a particular
+     * representation; the shim narrows to the layer's one-byte storage.
+     *
+     * Do NOT use the int accessors on a `CD_PROP_BOOL` layer: its storage is
+     * one byte, and a four-byte write would run past it into the neighbouring
+     * layer's slot. */
+    void bms_elem_get_bool(void *elem, int offset, unsigned char *out);
+    void bms_elem_set_bool(void *elem, int offset, unsigned char value);
+
     /* Iterate every element of `domain` in `BM_ITER_MESH` order and write
      * the layer's value at `offset` into a flat output buffer.
      *
@@ -2684,6 +2695,15 @@ extern "C"
                              int offset,
                              int *out_ints,
                              int out_ints_cap);
+
+    /* Same shape again for `CD_PROP_BOOL` layers — one byte per element,
+     * written to the output buffer as 0 / 1. Returns false on bad domain /
+     * buffer too small. */
+    bool bms_layer_read_bools(BMesh *bm,
+                              int domain,
+                              int offset,
+                              unsigned char *out_bools,
+                              int out_bools_cap);
 
     /* Element count for `domain` (0=vert, 1=edge, 2=loop, 3=face).
      * Returns -1 for an invalid domain. */

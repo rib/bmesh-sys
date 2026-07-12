@@ -3768,6 +3768,30 @@ unsafe extern "C" {
         out_ints: *mut c_int,
         out_ints_cap: c_int,
     ) -> bool;
+
+    /// Read every element-of-`domain`'s `CD_PROP_BOOL` value at `offset`
+    /// into a flat byte buffer (`0` / `1`), in the same iteration order as
+    /// [`bms_layer_read_floats`]. Returns `false` on an invalid domain or
+    /// buffer too small.
+    pub fn bms_layer_read_bools(
+        bm: *mut BMesh,
+        domain: c_int,
+        offset: c_int,
+        out_bools: *mut u8,
+        out_bools_cap: c_int,
+    ) -> bool;
+
+    /// Read the one-byte `CD_PROP_BOOL` value at `offset` on any BM element,
+    /// as `0` / `1`.
+    pub fn bms_elem_get_bool(elem: *mut std::ffi::c_void, offset: c_int, out: *mut u8);
+
+    /// Write the one-byte `CD_PROP_BOOL` value at `offset` on any BM element
+    /// (`0` = false, non-zero = true).
+    ///
+    /// A `CD_PROP_BOOL` slot is **one byte**; do not use [`bms_elem_set_int`]
+    /// on one, as the four-byte store would overrun into the neighbouring
+    /// layer's slot.
+    pub fn bms_elem_set_bool(elem: *mut std::ffi::c_void, offset: c_int, value: u8);
 }
 
 // ---- Region-inset customdata-merge trace ----

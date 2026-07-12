@@ -1051,6 +1051,19 @@ extern "C"
         *static_cast<int *>(bms_elem_cd_ptr(elem, offset)) = value;
     }
 
+    /* `CD_PROP_BOOL` slots are one byte wide. They are carried across the C ABI
+     * as `unsigned char` (0 / 1) so no assumption about `bool`'s representation
+     * leaks out of the shim. */
+    void bms_elem_get_bool(void *elem, int offset, unsigned char *out)
+    {
+        *out = *static_cast<const bool *>(bms_elem_cd_ptr(elem, offset)) ? 1 : 0;
+    }
+
+    void bms_elem_set_bool(void *elem, int offset, unsigned char value)
+    {
+        *static_cast<bool *>(bms_elem_cd_ptr(elem, offset)) = (value != 0);
+    }
+
     /* ---- Bulk CD layer read-back ---- */
     /*
      * `bms_layer_read_floats` / `bms_layer_read_ints` walk every element of
@@ -1237,6 +1250,81 @@ extern "C"
                 blender::BMHeader *head = reinterpret_cast<blender::BMHeader *>(f);
                 out_ints[fi++] = *reinterpret_cast<const int *>(
                     static_cast<const char *>(head->data) + offset);
+            }
+            return true;
+        }
+        default:
+            return false;
+        }
+    }
+
+    static unsigned char bms_read_bool_at(const void *elem, int offset)
+    {
+        const blender::BMHeader *head = static_cast<const blender::BMHeader *>(elem);
+        return *reinterpret_cast<const bool *>(
+                   static_cast<const char *>(head->data) + offset)
+                   ? 1
+                   : 0;
+    }
+
+    bool bms_layer_read_bools(BMesh *bm,
+                              int domain,
+                              int offset,
+                              unsigned char *out_bools,
+                              int out_bools_cap)
+    {
+        const int n = bms_domain_elem_count(bm, domain);
+        if (n < 0)
+            return false;
+        if (out_bools_cap < n)
+            return false;
+
+        BMIter iter;
+        switch (domain)
+        {
+        case 0:
+        {
+            BMVert *v;
+            int vi = 0;
+            BM_ITER_MESH(v, &iter, bm, BM_VERTS_OF_MESH)
+            {
+                out_bools[vi++] = bms_read_bool_at(v, offset);
+            }
+            return true;
+        }
+        case 1:
+        {
+            BMEdge *e;
+            int ei = 0;
+            BM_ITER_MESH(e, &iter, bm, BM_EDGES_OF_MESH)
+            {
+                out_bools[ei++] = bms_read_bool_at(e, offset);
+            }
+            return true;
+        }
+        case 2:
+        {
+            BMFace *f;
+            int li = 0;
+            BM_ITER_MESH(f, &iter, bm, BM_FACES_OF_MESH)
+            {
+                BMLoop *l_first = BM_FACE_FIRST_LOOP(f);
+                BMLoop *l = l_first;
+                do
+                {
+                    out_bools[li++] = bms_read_bool_at(l, offset);
+                    l = l->next;
+                } while (l != l_first);
+            }
+            return true;
+        }
+        case 3:
+        {
+            BMFace *f;
+            int fi = 0;
+            BM_ITER_MESH(f, &iter, bm, BM_FACES_OF_MESH)
+            {
+                out_bools[fi++] = bms_read_bool_at(f, offset);
             }
             return true;
         }
