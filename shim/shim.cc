@@ -364,10 +364,20 @@ extern "C"
                                 /*kill_degenerate_faces=*/false);
     }
 
+    BMFace *bms_faces_join_ex(
+        BMesh *bm, BMFace **faces, int totface, bool do_del, BMFace **r_double)
+    {
+        return BM_faces_join(bm, faces, totface, do_del, r_double);
+    }
+
     BMFace *bms_faces_join(BMesh *bm, BMFace **faces, int totface)
     {
-        BMFace *r_double = nullptr;
-        return BM_faces_join(bm, faces, totface, /*do_del=*/true, &r_double);
+        /* Deleting mode, and the "report" form of double handling: a coincident
+         * face is reported rather than reused, and this entry point discards the
+         * report. Callers that need the other mode, or the double's identity,
+         * use bms_faces_join_ex. */
+        BMFace *f_double = nullptr;
+        return bms_faces_join_ex(bm, faces, totface, /*do_del=*/true, &f_double);
     }
 
     BMEdge *bms_edge_rotate(BMesh *bm, BMEdge *e, bool ccw)

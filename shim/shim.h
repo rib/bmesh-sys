@@ -80,6 +80,38 @@ extern "C"
     void bms_loop_reverse(BMesh *bm, BMFace *f);
     BMEdge *bms_edge_separate(BMesh *bm, BMEdge *e, BMLoop *l_sep);
 
+    /* Face join.
+     *
+     * Joins the `totface` faces in `faces` into a single face spanning their
+     * union, returning the joined face, or null if the input does not form a
+     * valid region (the mesh is left untouched in that case).
+     *
+     * `do_del` selects what the join removes:
+     *   - true  — the edges interior to the region and the verts buried by it
+     *     are deleted, so the input faces die as collateral of that removal.
+     *   - false — every input face is killed by name instead, and the interior
+     *     edges and buried verts are left behind, surviving inside the joined
+     *     face as wire edges and loose verts.
+     *
+     * `r_double` selects how a *double* -- a pre-existing face found to be
+     * coincident with the joined face -- is handled:
+     *   - null — no double is reported; if the join would duplicate an existing
+     *     face, that face is reused and returned instead of a new one being
+     *     made. The returned face may therefore be a pre-existing one, already
+     *     carrying header flags and custom data.
+     *   - non-null — the joined face is always newly created and returned, and
+     *     `*r_double` receives the coincident face if one was found, or null if
+     *     there was none (also null when the join itself fails). The double is
+     *     *not* removed: the mesh holds two coincident faces until the caller
+     *     resolves it. */
+    BMFace *bms_faces_join_ex(
+        BMesh *bm, BMFace **faces, int totface, bool do_del, BMFace **r_double);
+
+    /* bms_faces_join_ex in the deleting mode, reporting-but-discarding any
+     * double: an existing coincident face is left standing alongside the newly
+     * joined one. */
+    BMFace *bms_faces_join(BMesh *bm, BMFace **faces, int totface);
+
     /* Radial-cycle reads.
      *
      * An edge stores a single pointer into its radial cycle -- its *entry*

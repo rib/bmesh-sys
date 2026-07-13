@@ -293,8 +293,37 @@ unsafe extern "C" {
     /// bmesh: `BM_edge_rotate` with `check_flag = 0`.
     pub fn bms_edge_rotate(bm: *mut BMesh, e: *mut BMEdge, ccw: bool) -> *mut BMEdge;
 
-    /// bmesh: `BM_faces_join` with `do_del=true`. Joins N faces into one.
+    /// bmesh: `BM_faces_join` with `do_del=true`, reporting any double but
+    /// discarding it. Joins N faces into one. Equivalent to calling
+    /// `bms_faces_join_ex` with `do_del = true` and a non-null `r_double`
+    /// whose value is ignored.
     pub fn bms_faces_join(bm: *mut BMesh, faces: *mut *mut BMFace, totface: c_int) -> *mut BMFace;
+
+    /// bmesh: `BM_faces_join`. Joins the `totface` faces pointed to by `faces`
+    /// into one face and returns it; returns null if the region is not joinable,
+    /// leaving the mesh untouched.
+    ///
+    /// `do_del = true` deletes the region's interior edges and buried verts (the
+    /// input faces die with them); `do_del = false` kills each input face by name
+    /// and leaves those edges and verts behind, as wire edges and loose verts
+    /// inside the joined face.
+    ///
+    /// `r_double` may be null, which asks for the reuse behaviour: a pre-existing
+    /// face coincident with the join is returned in place of a new one. When it is
+    /// non-null it must point to a writable `*mut BMFace`, which is overwritten
+    /// with the coincident face if one was found and with null otherwise —
+    /// including when the join fails. A reported double is left in the mesh; it is
+    /// the caller's job to resolve the two coincident faces.
+    ///
+    /// All pointers must be valid for the given mesh; `faces` must address at
+    /// least `totface` face pointers.
+    pub fn bms_faces_join_ex(
+        bm: *mut BMesh,
+        faces: *mut *mut BMFace,
+        totface: c_int,
+        do_del: bool,
+        r_double: *mut *mut BMFace,
+    ) -> *mut BMFace;
 
     /// bmesh: `BM_edge_collapse`. Collapses an edge by killing one of its
     /// vertices; the other endpoint absorbs all of v_kill's other edges.
