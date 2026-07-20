@@ -2753,6 +2753,16 @@ extern "C"
     void bms_elem_get_bool(void *elem, int offset, unsigned char *out);
     void bms_elem_set_bool(void *elem, int offset, unsigned char value);
 
+    /* Byte-colour accessors, for `CD_PROP_BYTE_COLOR` layers. The slot is four
+     * `unsigned char` lanes (r, g, b, a) — four bytes in total, not four
+     * floats.
+     *
+     * Do NOT use `bms_elem_get_float4` / `bms_elem_set_float4` on a
+     * `CD_PROP_BYTE_COLOR` layer: those touch sixteen bytes and would run
+     * twelve bytes past the slot into the neighbouring layer. */
+    void bms_elem_get_byte_color(void *elem, int offset, unsigned char out[4]);
+    void bms_elem_set_byte_color(void *elem, int offset, const unsigned char in[4]);
+
     /* Iterate every element of `domain` in `BM_ITER_MESH` order and write
      * the layer's value at `offset` into a flat output buffer.
      *
@@ -2791,6 +2801,16 @@ extern "C"
                               int offset,
                               unsigned char *out_bools,
                               int out_bools_cap);
+
+    /* Same shape again for `CD_PROP_BYTE_COLOR` layers — four bytes
+     * (r, g, b, a) per element, written contiguously, so the buffer needs
+     * `bms_domain_elem_count(bm, domain) * 4` bytes. Returns false on bad
+     * domain / buffer too small. */
+    bool bms_layer_read_byte_colors(BMesh *bm,
+                                    int domain,
+                                    int offset,
+                                    unsigned char *out_bytes,
+                                    int out_bytes_cap);
 
     /* Element count for `domain` (0=vert, 1=edge, 2=loop, 3=face).
      * Returns -1 for an invalid domain. */

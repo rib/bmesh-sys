@@ -1159,6 +1159,27 @@ extern "C"
         *static_cast<bool *>(bms_elem_cd_ptr(elem, offset)) = (value != 0);
     }
 
+    /* `CD_PROP_BYTE_COLOR` slots are four `unsigned char` lanes (r, g, b, a),
+     * four bytes wide in total — not four floats. */
+    void bms_elem_get_byte_color(void *elem, int offset, unsigned char out[4])
+    {
+        const unsigned char *p =
+            static_cast<const unsigned char *>(bms_elem_cd_ptr(elem, offset));
+        out[0] = p[0];
+        out[1] = p[1];
+        out[2] = p[2];
+        out[3] = p[3];
+    }
+
+    void bms_elem_set_byte_color(void *elem, int offset, const unsigned char in[4])
+    {
+        unsigned char *p = static_cast<unsigned char *>(bms_elem_cd_ptr(elem, offset));
+        p[0] = in[0];
+        p[1] = in[1];
+        p[2] = in[2];
+        p[3] = in[3];
+    }
+
     /* ---- Bulk CD layer read-back ---- */
     /*
      * `bms_layer_read_floats` / `bms_layer_read_ints` walk every element of
@@ -1420,6 +1441,83 @@ extern "C"
             BM_ITER_MESH(f, &iter, bm, BM_FACES_OF_MESH)
             {
                 out_bools[fi++] = bms_read_bool_at(f, offset);
+            }
+            return true;
+        }
+        default:
+            return false;
+        }
+    }
+
+    static void bms_read_byte_color_at(const void *elem, int offset, unsigned char *dst)
+    {
+        const blender::BMHeader *head = static_cast<const blender::BMHeader *>(elem);
+        const unsigned char *p = reinterpret_cast<const unsigned char *>(
+            static_cast<const char *>(head->data) + offset);
+        dst[0] = p[0];
+        dst[1] = p[1];
+        dst[2] = p[2];
+        dst[3] = p[3];
+    }
+
+    bool bms_layer_read_byte_colors(BMesh *bm,
+                                    int domain,
+                                    int offset,
+                                    unsigned char *out_bytes,
+                                    int out_bytes_cap)
+    {
+        const int n = bms_domain_elem_count(bm, domain);
+        if (n < 0)
+            return false;
+        if (out_bytes_cap < n * 4)
+            return false;
+
+        BMIter iter;
+        switch (domain)
+        {
+        case 0:
+        {
+            BMVert *v;
+            int vi = 0;
+            BM_ITER_MESH(v, &iter, bm, BM_VERTS_OF_MESH)
+            {
+                bms_read_byte_color_at(v, offset, out_bytes + (vi++ * 4));
+            }
+            return true;
+        }
+        case 1:
+        {
+            BMEdge *e;
+            int ei = 0;
+            BM_ITER_MESH(e, &iter, bm, BM_EDGES_OF_MESH)
+            {
+                bms_read_byte_color_at(e, offset, out_bytes + (ei++ * 4));
+            }
+            return true;
+        }
+        case 2:
+        {
+            BMFace *f;
+            int li = 0;
+            BM_ITER_MESH(f, &iter, bm, BM_FACES_OF_MESH)
+            {
+                BMLoop *l_first = BM_FACE_FIRST_LOOP(f);
+                BMLoop *l = l_first;
+                do
+                {
+                    bms_read_byte_color_at(l, offset, out_bytes + (li++ * 4));
+                    l = l->next;
+                } while (l != l_first);
+            }
+            return true;
+        }
+        case 3:
+        {
+            BMFace *f;
+            int fi = 0;
+            BM_ITER_MESH(f, &iter, bm, BM_FACES_OF_MESH)
+            {
+                bms_read_byte_color_at(f, offset, out_bytes + (fi++ * 4));
             }
             return true;
         }

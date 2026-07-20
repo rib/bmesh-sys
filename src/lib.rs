@@ -3788,6 +3788,8 @@ pub enum CdType {
     Float = 10,
     /// `CD_PROP_INT32`
     Int32 = 11,
+    /// `CD_PROP_BYTE_COLOR` — 4× `u8` (r, g, b, a), 4 bytes per element.
+    ByteColor = 17,
     /// `CD_PROP_COLOR` — 4× `f32`.
     Color = 47,
     /// `CD_PROP_FLOAT3`
@@ -3895,6 +3897,37 @@ unsafe extern "C" {
     /// on one, as the four-byte store would overrun into the neighbouring
     /// layer's slot.
     pub fn bms_elem_set_bool(elem: *mut std::ffi::c_void, offset: c_int, value: u8);
+
+    /// Read the `CD_PROP_BYTE_COLOR` value at `offset` on any BM element.
+    /// `out` must be valid for 4 `u8`s — the layer stores four one-byte lanes
+    /// (r, g, b, a), 4 bytes in total.
+    pub fn bms_elem_get_byte_color(elem: *mut std::ffi::c_void, offset: c_int, out: *mut u8);
+
+    /// Write the `CD_PROP_BYTE_COLOR` value at `offset` on any BM element.
+    /// `value` must be valid for 4 `u8`s (r, g, b, a).
+    ///
+    /// A `CD_PROP_BYTE_COLOR` slot is **4 lanes × 1 byte = 4 bytes**; do not
+    /// use [`bms_elem_set_float4`] on one, as its 16-byte store would overrun
+    /// the slot by 12 bytes into the neighbouring layer.
+    pub fn bms_elem_set_byte_color(
+        elem: *mut std::ffi::c_void,
+        offset: c_int,
+        value: *const u8,
+    );
+
+    /// Read every element-of-`domain`'s `CD_PROP_BYTE_COLOR` value at
+    /// `offset` into a flat byte buffer, in the same iteration order as
+    /// [`bms_layer_read_floats`]. Writes 4 lanes (r, g, b, a) per element
+    /// contiguously, so `out_bytes` must be valid for
+    /// `bms_domain_elem_count(bm, domain) * 4` `u8`s. Returns `false` on an
+    /// invalid domain or buffer too small.
+    pub fn bms_layer_read_byte_colors(
+        bm: *mut BMesh,
+        domain: c_int,
+        offset: c_int,
+        out_bytes: *mut u8,
+        out_bytes_cap: c_int,
+    ) -> bool;
 }
 
 // ---- Region-inset customdata-merge trace ----
