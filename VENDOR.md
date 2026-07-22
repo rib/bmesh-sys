@@ -33,7 +33,7 @@ Mesh creation in [`shim/shim.cc`](shim/shim.cc) (`bms_mesh_create`) sets
 | Operator | File | Notes |
 |---|---|---|
 | beautify | bmo_beautify.cc | Wraps tools/bmesh_beautify.cc (vendored). |
-| bevel | bmo_bevel.cc | Wraps tools/bmesh_bevel.cc (vendored). Uses Eigen via the C-API wrapper for `adjust_the_cycle_or_chain`'s least-squares offset solver. `harden_normals` and `custom_profile` paths are reachable only when the caller opts in — `BM_lnorspace_update` / `BKE_lnor_space_custom_normal_to_data` / `BKE_curveprofile_init` are stubbed in `shim/misc_stubs.cc` for the link, but no shim path triggers them. |
+| bevel | bmo_bevel.cc | Wraps tools/bmesh_bevel.cc (vendored). Uses Eigen via the C-API wrapper for `adjust_the_cycle_or_chain`'s least-squares offset solver. The `custom_profile` path is driven by the `bms_bevel_custom_profile` shim (which supplies a `CurveProfile` built by the `bms_curveprofile_*` helpers, backed by the vendored `blenkernel/intern/curveprofile.cc`). The `harden_normals` path is reachable only when the caller opts in — `BM_lnorspace_update` / `BKE_lnor_space_custom_normal_to_data` are stubbed in `shim/misc_stubs.cc` for the link, but no shim path triggers them. |
 | bisect_plane | bmo_bisect_plane.cc | Wraps tools/bmesh_bisect_plane.cc (vendored). |
 | bridge_loops | bmo_bridge.cc | |
 | circularize | bmo_circularize.cc | Uses `blender::math::invert<float,3>` from `math_matrix.cc` (Eigen-backed). |
@@ -105,6 +105,15 @@ These were added to `vendor/blenlib/intern/` to satisfy operator dependencies. A
 | math_matrix.cc | ~1500 | C++ matrix algebra (`blender::math::invert<T,N>` + decomposition family). Used by circularize. Requires Eigen. |
 | math_solvers.cc | ~150 | BLI least-squares / eigenvalue / SVD helpers. Wraps the Eigen C-API. |
 | rand.cc | ~500 | BLI_rng_* (random number generator) |
+| rct.cc | ~1200 | `BLI_rctf_*` axis-aligned rectangle helpers. Pulled in by `blenkernel/intern/curveprofile.cc` for its clip / view rect setup. |
+
+## Additional blenkernel/intern files vendored
+
+Beyond `customdata.cc`, one further blenkernel source is compiled:
+
+| File | Why |
+|---|---|
+| curveprofile.cc | `CurveProfile` control-point → sampled-segment-table evaluation, driving the bevel operator's custom-profile mode. A self-contained pure-math corner: its include closure resolves against the already-present `DNA_curve_types.h` / `DNA_curveprofile_types.h` / `BKE_curveprofile.h` / blenlib / MEM headers. The `_blend_write` / `_blend_read` functions (the only ones needing the blend-file serialization layer) are excised, and the `BKE_curve.hh` include is replaced by a local forward declaration of `BKE_curve_forward_diff_bezier` (whose scalar implementation lives in `shim/misc_stubs.cc`), keeping the curve module out of the translation unit. |
 
 ## Additional bmesh/intern files vendored
 
@@ -167,7 +176,6 @@ These functions are referenced by vendored code but currently never called:
 - `BKE_curve_forward_diff_bezier` (smooth-subdivide bezier; falls back to linear)
 - `BKE_lnor_spacearr_free` / `BKE_mesh_mdisp_flip` / `old_mdisps_bilinear` (multires + sculpt)
 - `BKE_defvert_find_weight` (vertex-group weight lookup; wireframe + bevel operators pass `defgrp_index = -1` which skips the branch — stub returns 1.0f, the "no weighting" default)
-- `BKE_curveprofile_init` (bevel's custom-profile path; only reached when `bp->custom_profile != nullptr` — shim never supplies one)
 - `BM_lnorspace_update` / `BKE_lnor_space_custom_normal_to_data` (bevel's `harden_normals` path; shim never sets harden_normals=true)
 - `BLI_system_backtrace` (debug)
 - **Excluded-operator exec functions** — `bmo_{mesh_to_bmesh,bmesh_to_mesh,object_load_bmesh}_exec` (from `bmo_mesh_convert.cc`). That `.cc` isn't compiled, but the **pristine** `bmesh_opdefines.cc` table still references its exec symbols, so they're defined as no-ops here to satisfy the link. The operators stay present-but-no-op. If a Blender pin bump adds / renames / drops a mesh-convert operator, the link breaks with an undefined- or duplicate-symbol error pointing at this list — update it accordingly.

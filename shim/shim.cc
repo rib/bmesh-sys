@@ -21,7 +21,9 @@
 #include "intern/bmesh_interp.hh"
 #include "intern/bmesh_operator_api.hh"
 #include "tools/bmesh_bevel.hh"
+#include "BKE_curveprofile.h"
 #include "BKE_customdata.hh"
+#include "DNA_curveprofile_types.h"
 #include "BLI_heap.h"
 #include "BLI_linklist.h"
 #include "BLI_math_geom.h"
@@ -2804,6 +2806,186 @@ extern "C"
                       vmesh_method,
                       bweight_offset_vert,
                       bweight_offset_edge);
+
+        BMO_pop(bm);
+        return true;
+    }
+
+    /* ---- Curve profiles (custom bevel profile) ---- */
+    /*
+     * Thin constructors and accessors around blenkernel's CurveProfile: a chain
+     * of 2D Bezier control points sampled into an evenly-spaced position table.
+     * The bevel operator's CUSTOM profile mode reads that table to shape each
+     * bevel segment.
+     */
+
+    CurveProfile *bms_curveprofile_new_preset(int preset)
+    {
+        return BKE_curveprofile_add(static_cast<eCurveProfilePresets>(preset));
+    }
+
+    CurveProfile *bms_curveprofile_new_from_points(const float *xy,
+                                                   const int *h1,
+                                                   const int *h2,
+                                                   int n)
+    {
+        CurveProfile *profile = BKE_curveprofile_add(PROF_PRESET_LINE);
+        if (n < 2)
+        {
+            return profile;
+        }
+
+        /* Replace the preset's default path with the supplied control points. */
+        MEM_SAFE_DELETE(profile->path);
+        profile->path = MEM_new_array<CurveProfilePoint>(size_t(n), __func__);
+        for (int i = 0; i < n; i++)
+        {
+            profile->path[i].x = xy[2 * i + 0];
+            profile->path[i].y = xy[2 * i + 1];
+            profile->path[i].flag = 0;
+            profile->path[i].h1 = char(h1[i]);
+            profile->path[i].h2 = char(h2[i]);
+            profile->path[i].profile = profile;
+        }
+        profile->path_len = short(n);
+        profile->preset = PROF_PRESET_LINE;
+
+        /* Rebuild the high-resolution table from the new path. */
+        BKE_curveprofile_update(profile, PROF_UPDATE_NONE);
+        return profile;
+    }
+
+    void bms_curveprofile_init(CurveProfile *profile, int segments_len)
+    {
+        BKE_curveprofile_init(profile, short(segments_len));
+    }
+
+    void bms_curveprofile_free(CurveProfile *profile)
+    {
+        BKE_curveprofile_free(profile);
+    }
+
+    bool bms_curveprofile_segment_xy(const CurveProfile *profile,
+                                     int i,
+                                     float *out_x,
+                                     float *out_y)
+    {
+        if (profile == nullptr || profile->segments == nullptr)
+        {
+            return false;
+        }
+        if (i < 0 || i > int(profile->segments_len))
+        {
+            return false;
+        }
+        if (out_x != nullptr)
+        {
+            *out_x = profile->segments[i].x;
+        }
+        if (out_y != nullptr)
+        {
+            *out_y = profile->segments[i].y;
+        }
+        return true;
+    }
+
+    /* ---- Bevel with a custom curve profile (BMesh: BM_mesh_bevel) ---- */
+    /*
+     * Forces `profile_type` to CUSTOM and forwards `custom_profile` to
+     * BM_mesh_bevel's profile-shape argument (hard-wired null by the plain
+     * bevel shims). The element-buffer flushing, normal refresh and tool-flag
+     * bracket mirror `bms_bevel_weighted`; per-element weighting stays off.
+     */
+    bool bms_bevel_custom_profile(BMesh *bm,
+                                  BMHeader **geom, int geom_len,
+                                  float offset,
+                                  int offset_type,
+                                  int segments,
+                                  const CurveProfile *custom_profile,
+                                  int affect,
+                                  bool clamp_overlap,
+                                  int material,
+                                  bool loop_slide,
+                                  bool mark_seam,
+                                  bool mark_sharp,
+                                  bool harden_normals,
+                                  int face_strength_mode,
+                                  int miter_outer,
+                                  int miter_inner,
+                                  float spread,
+                                  int vmesh_method)
+    {
+        if (!(offset > 0.0f))
+        {
+            return true;
+        }
+
+        {
+            BMFace *f;
+            BMIter face_iter;
+            BM_ITER_MESH(f, &face_iter, bm, BM_FACES_OF_MESH)
+            {
+                BM_face_normal_update(f);
+            }
+            BMVert *v;
+            BMIter vert_iter;
+            BM_ITER_MESH(v, &vert_iter, bm, BM_VERTS_OF_MESH)
+            {
+                BM_vert_normal_update_all(v);
+            }
+        }
+
+        /* Flush the element buffer into BM_ELEM_TAG; BM_mesh_bevel operates on
+         * tagged verts / edges. Mirror the BMOP's manifold-edge gating. */
+        BM_mesh_elem_hflag_disable_all(bm, BM_VERT | BM_EDGE | BM_FACE, BM_ELEM_TAG, false);
+        for (int i = 0; i < geom_len; i++)
+        {
+            BMHeader *h = geom[i];
+            if (h->htype == BM_VERT)
+            {
+                BM_elem_flag_enable(reinterpret_cast<BMVert *>(h), BM_ELEM_TAG);
+            }
+            else if (h->htype == BM_EDGE)
+            {
+                BMEdge *e = reinterpret_cast<BMEdge *>(h);
+                if (BM_edge_is_manifold(e))
+                {
+                    BM_elem_flag_enable(e, BM_ELEM_TAG);
+                    BM_elem_flag_enable(e->v1, BM_ELEM_TAG);
+                    BM_elem_flag_enable(e->v2, BM_ELEM_TAG);
+                }
+            }
+        }
+
+        /* Reproduce the tool-flag bracket the operator executor would set up
+         * (see bms_bevel_weighted for the rationale). */
+        BM_mesh_elem_toolflags_ensure(bm);
+        BMO_push(bm, nullptr);
+
+        BM_mesh_bevel(bm,
+                      offset,
+                      offset_type,
+                      BEVEL_PROFILE_CUSTOM,
+                      segments,
+                      /*profile=*/0.5f,
+                      affect != 0,
+                      /*use_weights=*/false,
+                      /*limit_offset=*/clamp_overlap,
+                      /*dvert=*/nullptr,
+                      /*vertex_group=*/-1,
+                      material,
+                      loop_slide,
+                      mark_seam,
+                      mark_sharp,
+                      harden_normals,
+                      face_strength_mode,
+                      miter_outer,
+                      miter_inner,
+                      spread,
+                      custom_profile,
+                      vmesh_method,
+                      /*bweight_offset_vert=*/-1,
+                      /*bweight_offset_edge=*/-1);
 
         BMO_pop(bm);
         return true;

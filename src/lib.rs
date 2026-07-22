@@ -39,6 +39,13 @@ pub struct BMFace {
 pub struct BMHeader {
     _private: [u8; 0],
 }
+/// A 2D control-point curve profile. Built by the `bms_curveprofile_*`
+/// constructors and consumed by [`bms_bevel_custom_profile`]. Held only as a
+/// raw pointer; release it with [`bms_curveprofile_free`].
+#[repr(C)]
+pub struct CurveProfile {
+    _private: [u8; 0],
+}
 
 // ---- Mesh lifecycle ----
 
@@ -1072,6 +1079,102 @@ unsafe extern "C" {
         vmesh_method: c_int,
     ) -> bool;
 
+    /// Bevel as [`bms_bevel`], but with `profile_type` forced to CUSTOM and
+    /// the supplied `custom_profile` driving the segment shape. The scalar
+    /// `profile` factor does not apply on this path. `custom_profile` must be a
+    /// live pointer from one of the `bms_curveprofile_new_*` constructors; the
+    /// bevel refreshes the profile's internal sample table itself, so no prior
+    /// [`bms_curveprofile_init`] is required.
+    ///
+    /// Returns false only if the underlying entry could not run; the
+    /// `offset <= 0.0` case returns true as a no-op. Output geometry is mutated
+    /// in place.
+    ///
+    /// # Safety
+    /// `bm` must be a valid mesh, `geom` must point to `geom_len` valid element
+    /// pointers belonging to `bm`, and `custom_profile` must be a valid,
+    /// non-freed profile pointer.
+    pub fn bms_bevel_custom_profile(
+        bm: *mut BMesh,
+        geom: *mut *mut BMHeader,
+        geom_len: c_int,
+        offset: f32,
+        offset_type: c_int,
+        segments: c_int,
+        custom_profile: *const CurveProfile,
+        affect: c_int,
+        clamp_overlap: bool,
+        material: c_int,
+        loop_slide: bool,
+        mark_seam: bool,
+        mark_sharp: bool,
+        harden_normals: bool,
+        face_strength_mode: c_int,
+        miter_outer: c_int,
+        miter_inner: c_int,
+        spread: f32,
+        vmesh_method: c_int,
+    ) -> bool;
+}
+
+// ---- Curve profiles (custom bevel profile) ----
+
+unsafe extern "C" {
+    /// Allocate a curve profile from a built-in preset and return an owning
+    /// pointer (release with [`bms_curveprofile_free`]). `preset` selects the
+    /// control-point layout: LINE=0, SUPPORTS=1, CORNICE=2, CROWN=3, STEPS=4.
+    /// The SUPPORTS and STEPS presets derive their point count from the segment
+    /// count, so call [`bms_curveprofile_init`] before reading samples back.
+    pub fn bms_curveprofile_new_preset(preset: c_int) -> *mut CurveProfile;
+
+    /// Allocate a curve profile from `n` explicit control points and return an
+    /// owning pointer (release with [`bms_curveprofile_free`]). `xy` points to
+    /// `n` `(x, y)` pairs (length `2 * n`); `h1` and `h2` hold the per-point
+    /// incoming / outgoing handle types (length `n` each), using the handle
+    /// enum FREE=0, AUTO=1, VECT=2, ALIGN=3. Requires `n >= 2`.
+    ///
+    /// # Safety
+    /// `xy` must be valid for `2 * n` floats and `h1` / `h2` for `n` ints each.
+    pub fn bms_curveprofile_new_from_points(
+        xy: *const f32,
+        h1: *const c_int,
+        h2: *const c_int,
+        n: c_int,
+    ) -> *mut CurveProfile;
+
+    /// Build the profile's sampled segment table for `segments_len` segments.
+    /// Must precede [`bms_curveprofile_segment_xy`]; the table then holds
+    /// `segments_len + 1` samples.
+    ///
+    /// # Safety
+    /// `profile` must be a valid, non-freed profile pointer.
+    pub fn bms_curveprofile_init(profile: *mut CurveProfile, segments_len: c_int);
+
+    /// Release a profile allocated by the `bms_curveprofile_new_*` helpers.
+    /// A null pointer is accepted and ignored.
+    ///
+    /// # Safety
+    /// `profile` must be a pointer from a `bms_curveprofile_new_*` constructor,
+    /// not previously freed.
+    pub fn bms_curveprofile_free(profile: *mut CurveProfile);
+
+    /// Read the i-th sample of the profile's segment table into `out_x` /
+    /// `out_y`. Requires a prior [`bms_curveprofile_init`]; `i` must be in
+    /// `0..=segments_len`. Returns false (leaving outputs untouched) if the
+    /// table is absent or `i` is out of range.
+    ///
+    /// # Safety
+    /// `profile` must be valid; `out_x` / `out_y` must be valid for one write
+    /// each (or null to skip that component).
+    pub fn bms_curveprofile_segment_xy(
+        profile: *const CurveProfile,
+        i: c_int,
+        out_x: *mut f32,
+        out_y: *mut f32,
+    ) -> bool;
+}
+
+unsafe extern "C" {
     /// Invoke BMesh's `dissolve_verts` BMOP on the supplied vertex set.
     /// Both BMOP slot parameters are forwarded explicitly:
     ///

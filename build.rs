@@ -184,6 +184,9 @@ fn main() {
         "blenlib/intern/sort_utils.cc",
         "blenlib/intern/math_matrix_c.cc",
         "blenlib/intern/rand.cc",
+        // Axis-aligned rectangle helpers (BLI_rctf_*). Pulled in by
+        // blenkernel/intern/curveprofile.cc for its clip/view rect setup.
+        "blenlib/intern/rct.cc",
     ];
     let guardedalloc_files: &[&str] = &[
         "guardedalloc/intern/mallocn.cc",
@@ -194,7 +197,13 @@ fn main() {
     // BMesh's real customdata interp. Heavy stubbing of pulled-in BKE / BLO
     // headers lives under shim/blenkernel_stubs.cc and vendor/blenkernel
     // stub headers. See PR-Y2 in /home/rib/.claude/plans for the strategy.
-    let blenkernel_files: &[&str] = &["blenkernel/intern/customdata.cc"];
+    let blenkernel_files: &[&str] = &[
+        "blenkernel/intern/customdata.cc",
+        // CurveProfile control-point evaluation: builds the sampled segment
+        // table used by the bevel operator's custom profile path. A
+        // self-contained math corner (blend-file serialization excised).
+        "blenkernel/intern/curveprofile.cc",
+    ];
 
     // Blender's thin C wrapper around Eigen — required by bevel
     // (linear_solver for the offset-adjust LS problem), smooth_laplacian

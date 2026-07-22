@@ -141,14 +141,6 @@ namespace blender
         }
     }
 
-    /* BKE_curveprofile_init — initialises a custom CurveProfile (CD_FLAG-style
-     * lookup table for the bevel custom-profile path). Referenced from
-     * tools/bmesh_bevel.cc inside set_profile_spacing, but only when
-     * `bp->custom_profile != nullptr`. Our shim never passes a custom_profile
-     * (default is BEVEL_PROFILE_SUPERELLIPSE), so the call is unreachable. */
-    struct CurveProfile;
-    void BKE_curveprofile_init(CurveProfile * /*profile*/, short /*segments_len*/) {}
-
     /* External customdata-file I/O. Only used by the file-backed CD path
      * (`CD_FLAG_EXTERNAL`), which we don't exercise. */
     struct CDataFile;

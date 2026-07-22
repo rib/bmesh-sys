@@ -26,6 +26,12 @@ extern "C"
     /* Common header shared by every BM element; used as a type-erased
      * element-pointer in mixed vert/edge/face buffers. */
     typedef struct BMHeader BMHeader;
+    /* A 2D control-point curve profile: a chain of Bezier control points
+     * that is sampled into an evenly-spaced table of positions. Constructed
+     * by the `bms_curveprofile_*` helpers; consumed by the custom-profile
+     * bevel entry point. Opaque here; defined in the vendored blenkernel
+     * source. */
+    typedef struct CurveProfile CurveProfile;
 
     /* Mesh lifecycle. */
     BMesh *bms_mesh_create(void);
@@ -711,6 +717,85 @@ extern "C"
                             int miter_inner,
                             float spread,
                             int vmesh_method);
+
+    /* ---- Curve profiles (custom bevel profile) ---- */
+
+    /* Allocate a curve profile from a built-in preset and return an owning
+     * pointer. `preset` selects the control-point layout:
+     *
+     *   - LINE=0, SUPPORTS=1, CORNICE=2, CROWN=3, STEPS=4
+     *
+     * The SUPPORTS and STEPS presets use a control-point count derived from
+     * the profile's segment count, so call `bms_curveprofile_init` with the
+     * desired segment count before reading samples back. The returned pointer
+     * must be released with `bms_curveprofile_free`. */
+    CurveProfile *bms_curveprofile_new_preset(int preset);
+
+    /* Allocate a curve profile from an explicit list of `n` control points and
+     * return an owning pointer. `xy` holds `n` (x, y) pairs (length 2*n); the
+     * profile is conventionally traversed from (1, 0) to (0, 1). `h1` and `h2`
+     * hold the per-point handle types for the incoming and outgoing handle
+     * (length `n` each), using the handle enum:
+     *
+     *   - FREE=0, AUTO=1, VECT=2, ALIGN=3
+     *
+     * Requires `n >= 2`; with fewer points a default two-point line profile is
+     * returned. The returned pointer must be released with
+     * `bms_curveprofile_free`. */
+    CurveProfile *bms_curveprofile_new_from_points(const float *xy,
+                                                   const int *h1,
+                                                   const int *h2,
+                                                   int n);
+
+    /* Build the profile's sampled segment table for `segments_len` segments.
+     * Must be called before reading samples back with
+     * `bms_curveprofile_segment_xy`; the table then holds `segments_len + 1`
+     * samples (indices 0..segments_len inclusive). */
+    void bms_curveprofile_init(CurveProfile *profile, int segments_len);
+
+    /* Release a curve profile allocated by the `bms_curveprofile_new_*`
+     * helpers. Null is accepted and ignored. */
+    void bms_curveprofile_free(CurveProfile *profile);
+
+    /* Read back the i-th sample of the profile's segment table into `out_x` /
+     * `out_y`. Requires a prior `bms_curveprofile_init` call; `i` must be in
+     * 0..segments_len. Returns true on success, false if the table is absent
+     * or `i` is out of range (outputs left untouched). */
+    bool bms_curveprofile_segment_xy(const CurveProfile *profile,
+                                     int i,
+                                     float *out_x,
+                                     float *out_y);
+
+    /* Bevel as `bms_bevel`, but drives BMesh's `BM_mesh_bevel` entry directly
+     * with `profile_type` forced to CUSTOM and the supplied `custom_profile`
+     * forwarded as the profile shape. `custom_profile` must be a live pointer
+     * from the `bms_curveprofile_new_*` helpers; the bevel refreshes the
+     * profile's internal sample table for the resolved segment count itself,
+     * so no prior `bms_curveprofile_init` is required. The scalar `profile`
+     * argument is ignored on the CUSTOM path.
+     *
+     * Parameter surface, element-buffer semantics (manifold-edge gating),
+     * normal refresh, and the `offset <= 0` no-op all match `bms_bevel`.
+     * Output geometry is mutated in place. Returns true on success (including
+     * the `offset <= 0` no-op). */
+    bool bms_bevel_custom_profile(BMesh *bm,
+                                  BMHeader **geom, int geom_len,
+                                  float offset,
+                                  int offset_type,
+                                  int segments,
+                                  const CurveProfile *custom_profile,
+                                  int affect,
+                                  bool clamp_overlap,
+                                  int material,
+                                  bool loop_slide,
+                                  bool mark_seam,
+                                  bool mark_sharp,
+                                  bool harden_normals,
+                                  int face_strength_mode,
+                                  int miter_outer,
+                                  int miter_inner,
+                                  float spread,
+                                  int vmesh_method);
 
     /* Invoke BMesh's `dissolve_verts` operator on the supplied vertex set.
      * Exposes both BMOP slot parameters explicitly:
