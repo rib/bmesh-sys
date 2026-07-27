@@ -2889,6 +2889,49 @@ extern "C"
         return true;
     }
 
+    int bms_curveprofile_point_count(const CurveProfile *profile)
+    {
+        if (profile == nullptr || profile->path == nullptr)
+        {
+            return 0;
+        }
+        return int(profile->path_len);
+    }
+
+    bool bms_curveprofile_point(const CurveProfile *profile,
+                                int i,
+                                float *out_x,
+                                float *out_y,
+                                int *out_h1,
+                                int *out_h2)
+    {
+        if (profile == nullptr || profile->path == nullptr)
+        {
+            return false;
+        }
+        if (i < 0 || i >= int(profile->path_len))
+        {
+            return false;
+        }
+        if (out_x != nullptr)
+        {
+            *out_x = profile->path[i].x;
+        }
+        if (out_y != nullptr)
+        {
+            *out_y = profile->path[i].y;
+        }
+        if (out_h1 != nullptr)
+        {
+            *out_h1 = int(profile->path[i].h1);
+        }
+        if (out_h2 != nullptr)
+        {
+            *out_h2 = int(profile->path[i].h2);
+        }
+        return true;
+    }
+
     /* ---- Bevel with a custom curve profile (BMesh: BM_mesh_bevel) ---- */
     /*
      * Forces `profile_type` to CUSTOM and forwards `custom_profile` to

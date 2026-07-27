@@ -766,6 +766,24 @@ extern "C"
                                      float *out_x,
                                      float *out_y);
 
+    /* Number of control points in the profile's defining path. Presets derive
+     * this from the segment count that was set when the preset was built, so it
+     * is not generally `segments_len + 1`. Returns 0 for a null profile. */
+    int bms_curveprofile_point_count(const CurveProfile *profile);
+
+    /* Read back the i-th control point of the profile's defining path: its
+     * position into `out_x` / `out_y` and its incoming / outgoing handle types
+     * into `out_h1` / `out_h2` (handle enum FREE=0, AUTO=1, VECT=2, ALIGN=3).
+     * Any output pointer may be null to skip that component. `i` must be in
+     * 0..bms_curveprofile_point_count()-1; returns false with the outputs left
+     * untouched otherwise. */
+    bool bms_curveprofile_point(const CurveProfile *profile,
+                                int i,
+                                float *out_x,
+                                float *out_y,
+                                int *out_h1,
+                                int *out_h2);
+
     /* Bevel as `bms_bevel`, but drives BMesh's `BM_mesh_bevel` entry directly
      * with `profile_type` forced to CUSTOM and the supplied `custom_profile`
      * forwarded as the profile shape. `custom_profile` must be a live pointer

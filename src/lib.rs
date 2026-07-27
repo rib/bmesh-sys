@@ -1172,6 +1172,33 @@ unsafe extern "C" {
         out_x: *mut f32,
         out_y: *mut f32,
     ) -> bool;
+
+    /// Number of control points in the profile's defining path. Presets derive
+    /// this from the segment count in force when the preset was built, so it is
+    /// not generally `segments_len + 1`. Returns 0 for a null profile.
+    ///
+    /// # Safety
+    /// `profile` must be a valid, non-freed profile pointer or null.
+    pub fn bms_curveprofile_point_count(profile: *const CurveProfile) -> c_int;
+
+    /// Read back the i-th control point of the profile's defining path: its
+    /// position into `out_x` / `out_y` and its incoming / outgoing handle types
+    /// into `out_h1` / `out_h2` (handle enum FREE=0, AUTO=1, VECT=2, ALIGN=3).
+    /// Any output pointer may be null to skip that component. `i` must be in
+    /// `0..bms_curveprofile_point_count()`; returns false with the outputs left
+    /// untouched otherwise.
+    ///
+    /// # Safety
+    /// `profile` must be valid; each non-null output pointer must be valid for
+    /// one write.
+    pub fn bms_curveprofile_point(
+        profile: *const CurveProfile,
+        i: c_int,
+        out_x: *mut f32,
+        out_y: *mut f32,
+        out_h1: *mut c_int,
+        out_h2: *mut c_int,
+    ) -> bool;
 }
 
 unsafe extern "C" {
